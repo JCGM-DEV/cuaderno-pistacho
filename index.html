@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Cuaderno de Campo Digital para gestión de plantaciones de pistacho. Controla parcelas, riegos, podas, abonos y más.">
+    <title>Garuto — Cuaderno de Campo Digital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2d382d">
+    <link rel="apple-touch-icon" href="icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="stylesheet" href="index.css?v=2026v2">
+    <!-- External Libraries (must load before app.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- App -->
+    <script src="app.js?v=2026v2" defer></script>
+</head>
+
+<body>
+    <!-- Script para forzar limpieza de Service Worker antiguo -->
+    <script>
+        if ('serviceWorker' in navigator && !localStorage.getItem('sw_cleaned_v2026v2')) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                registrations.forEach(r => r.unregister());
+                localStorage.setItem('sw_cleaned_v2026v2', '1');
+            });
+        }
+    </script>
+
+    <!-- ==================== LOGIN SCREEN ==================== -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-bg-decoration">
+            <div class="login-leaf leaf-1">🌿</div>
+            <div class="login-leaf leaf-2">🌿</div>
+            <div class="login-leaf leaf-3">🌱</div>
+            <div class="login-leaf leaf-4">🍃</div>
+        </div>
+        <div class="login-card">
+            <div class="login-logo">
+                <div class="login-logo-img">
+                    <img src="nut.png" alt="Logo Garuto" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <h1>Garuto</h1>
+                <p>Cuaderno de Campo Digital</p>
+            </div>
+            <form id="login-form" autocomplete="off">
+                <div class="form-group">
+                    <label for="login-user">👤 Usuario</label>
+                    <input type="text" id="login-user" placeholder="Introduce tu usuario" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-pass">🔒 Contraseña</label>
+                    <input type="password" id="login-pass" placeholder="Introduce tu contraseña" required>
+                </div>
+                <div id="login-error" class="login-error" hidden>
+                    <span>⚠️</span> Usuario o contraseña incorrectos
+                </div>
+                <button type="submit" class="btn btn-primary btn-login" id="login-btn">
+                    Iniciar Sesión
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== MAIN APP ==================== -->
+    <div id="app" class="app" hidden>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo-img">
+                    <img src="nut.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;">
+                </div>
+                <div>
+                    <h2>Garuto</h2>
+                    <span class="sidebar-subtitle">Cuaderno de Campo Digital</span>
+                    <div id="connection-badge" class="connection-badge online">
+                         <span class="dot"></span> <span class="label">Conectado</span>
+                    </div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="dashboard" id="nav-dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Resumen</span>
+                </a>
+                <a href="#" class="nav-item" data-section="parcelas" id="nav-parcelas">
+                    <span class="nav-icon">🗺️</span>
+                    <span class="nav-label">Parcelas</span>
+                </a>
+                <a href="#" class="nav-item" data-section="trabajos" id="nav-trabajos">
+                    <span class="nav-icon">🔧</span>
+                    <span class="nav-label">Trabajos</span>
+                </a>
+                <a href="#" class="nav-item" data-section="registrar" id="nav-registrar">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-label">Registrar</span>
+                </a>
+                <a href="#" class="nav-item" data-section="consultar" id="nav-consultar">
+                    <span class="nav-icon">🔍</span>
+                    <span class="nav-label">Consultar</span>
+                </a>
+                <a href="#" class="nav-item" data-section="galeria" id="nav-galeria">
+                    <span class="nav-icon">📷</span>
+                    <span class="nav-label">Galería</span>
+                </a>
+                <a href="#" class="nav-item" data-section="planing" id="nav-planing">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-label">Planing</span>
+                </a>
+                <a href="#" class="nav-item" data-section="almacen" id="nav-almacen">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-label">Almacén</span>
+                </a>
+                <a href="#" class="nav-item" data-section="maquinaria" id="nav-maquinaria">
+                    <span class="nav-icon">🚜</span>
+                    <span class="nav-label">Maquinaria</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info" id="user-info">
+                    <div class="profile-card">
+                        <img src="https://ui-avatars.com/api/?name=Admin+Campo&background=a3d65e&color=141a0f" alt="Profile" class="profile-avatar">
+                        <div class="profile-info">
+                            <span class="profile-name" id="user-display-name-sidebar">Usuario Campo</span>
+                            <span class="profile-role">Administrador</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-footer-actions">
+                    <button class="btn-sidebar-secondary" id="nav-ayuda-footer" onclick="app._navigateTo('ayuda')">
+                        <span>❓</span> Ayuda
+                    </button>
+                    <button class="btn-sidebar-secondary" id="nav-ajustes-footer" onclick="app._navigateTo('ajustes')">
+                        <span>⚙️</span> Configuración
+                    </button>
+                    <button class="btn-sidebar-logout" id="btn-logout">
+                        <span>🚪</span> Cerrar Sesión
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MOBILE HEADER -->
+        <header class="mobile-header" id="mobile-header">
+            <button class="hamburger" id="hamburger-btn" aria-label="Abrir menú">
+                <span></span><span></span><span></span>
+            </button>
+            <h1 class="mobile-title">
+                <span class="mobile-logo-img">
+                    <img src="nut.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; vertical-align: middle;">
+                </span> 
+                Pistachos Garuto
+            </h1>
+            <div class="mobile-user-pill" id="mobile-user-pill">
+                <span class="mobile-user-name" id="user-display-name-mobile">Usuario</span>
+            </div>
+            <button class="mobile-logout-btn" id="btn-logout-mobile" aria-label="Cerrar sesión" title="Cerrar sesión">
+                🚪
+            </button>
+            <div id="mobile-connection-badge" class="connection-badge-mini online"></div>
+        </header>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content" id="main-content">
+
+            <!-- ===== DASHBOARD ===== -->
+            <section class="content-section active" id="section-dashboard">
+                <div class="dashboard-header-premium">
+                    <div class="greeting-block">
+                        <span class="date-label" id="dashboard-date">Cargando fecha...</span>
+                        <h1 class="greeting-text">¡Buenos días, <span id="user-greeting-name">...</span>!</h1>
+                    </div>
+                </div>
+                <div class="stats-grid animate-fade-in-up stagger-1" id="stats-grid">
+
+                    <div class="stat-premium-card" onclick="app._navigateTo('parcelas')">
+                        <span class="stat-premium-label">Parcelas</span>
+                        <div class="stat-premium-value">
+                            <span id="stat-parcelas">0</span>
+                            <span class="stat-premium-badge">Activas</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-premium-card" onclick="app._navigateTo('consultar')">
+                        <span class="stat-premium-label">Actividades</span>
+                        <div class="stat-premium-value">
+                            <span id="stat-registros">0</span>
+                            <span class="stat-premium-badge gold">Historial</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-premium-card">
+                        <span class="stat-premium-label">Registros Mes</span>
+                        <div class="stat-premium-value">
+                            <span id="stat-mes">0</span>
+                            <span class="stat-premium-badge">Nuevos</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-premium-card" onclick="app._navigateTo('ajustes')">
+                        <span class="stat-premium-label">Balance Anual</span>
+                        <div class="stat-premium-value">
+                            <span id="stat-money">0 €</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="kpi-strip animate-fade-in-up stagger-2" id="kpi-strip">
+                    <article class="kpi-card">
+                        <span class="kpi-label">Balance por Ha</span>
+                        <strong class="kpi-value" id="kpi-balance-ha">--</strong>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">Coste Medio Labor</span>
+                        <strong class="kpi-value" id="kpi-coste-labor">--</strong>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">Horas por Ha</span>
+                        <strong class="kpi-value" id="kpi-horas-ha">--</strong>
+                    </article>
+                    <article class="kpi-card">
+                        <span class="kpi-label">Kg Cosecha por Ha</span>
+                        <strong class="kpi-value" id="kpi-kg-ha">--</strong>
+                    </article>
+                </div>
+
+                <!-- Weather Widget -->
+                <div class="card weather-card animate-fade-in-up stagger-3">
+                    <div class="weather-header">
+                        <h3>⛅ Clima en Viso del Marqués</h3>
+                        <span class="weather-status-text" id="weather-status">Cargando...</span>
+                    </div>
+
+                    <div class="weather-grid" id="weather-grid">
+                        <div class="weather-main">
+                            <div class="weather-icon" id="weather-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg></div>
+                            <div class="weather-temp"><span id="weather-temp">--</span>°C</div>
+                        </div>
+                        <div class="weather-details">
+                            <div class="weather-detail">
+                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path></svg></span>
+                                <div class="wd-info">
+                                    <span class="wd-label">Prob. Lluvia</span>
+                                    <span class="wd-value" id="weather-rain">--%</span>
+                                </div>
+                            </div>
+                            <div class="weather-detail">
+                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"></path><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"></path><path d="M9.8 4.4A2 2 0 1 1 11 8H2"></path></svg></span>
+                                <div class="wd-info">
+                                    <span class="wd-label">Viento</span>
+                                    <span class="wd-value" id="weather-wind">-- km/h</span>
+                                </div>
+                            </div>
+                            <div class="weather-detail">
+                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path></svg></span>
+                                <div class="wd-info">
+                                    <span class="wd-label">Humedad</span>
+                                    <span class="wd-value" id="weather-humidity">--%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 7-Day Forecast Container -->
+                    <div class="weather-week-forecast" id="weather-week-forecast"></div>
+                    
+                    <div class="weather-advice" id="weather-advice">
+                        <!-- Advice generated by JS based on weather conditions -->
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card card-recent animate-fade-in-up stagger-3">
+                        <div class="card-header-flex">
+                            <h3>🕐 Últimos Registros</h3>
+                            <button class="btn btn-secondary btn-sm" onclick="app._navigateTo('consultar')">Ver todos</button>
+                        </div>
+
+                        <div id="recent-records" class="recent-list">
+                            <p class="empty-msg">No hay registros todavía</p>
+                        </div>
+                    </div>
+                    <div class="card card-activity animate-fade-in-up stagger-4">
+                        <h3>📊 Resumen de Gastos Anuales</h3>
+                        <div class="chart-container" style="position: relative; height:300px; width:100%">
+                            <canvas id="chart-costs"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card card-activity animate-fade-in-up stagger-4">
+                        <h3>📈 Labores por Tipo</h3>
+                        <div class="chart-container" style="position: relative; height:300px; width:100%">
+                            <canvas id="chart-types"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- ===== PARCELAS ===== -->
+            <section class="content-section" id="section-parcelas">
+                <div class="section-header animate-fade-in-up">
+                    <h1>🗺️ Gestión de Parcelas</h1>
+                    <p class="section-desc">Administra las parcelas de tu explotación y visualízalas en el mapa</p>
+                </div>
+
+
+                <div class="parcelas-grid">
+                    <!-- Mapa Interactivo -->
+                    <div class="card map-card">
+                        <div class="card-header-flex">
+                            <h3>📍 Visor de Parcelas SIGPAC</h3>
+                            <span class="badge badge-info">Interactivo</span>
+                        </div>
+                        <div id="map"></div>
+                    </div>
+                    <div class="card form-card">
+                        <h3 id="form-parcela-title">➕ Nueva Parcela</h3>
+                        <form id="form-parcela" class="inline-form">
+                            <div class="form-group">
+                                <label for="parcela-nombre">Nombre de la parcela</label>
+                                <input type="text" id="parcela-nombre" placeholder="Ej: Parcela Norte - Los Olivos"
+                                    required>
+                            </div>
+                            <div class="form-group">
+                                <label for="parcela-superficie">Superficie (ha)</label>
+                                <input type="number" id="parcela-superficie" placeholder="Ej: 5.2" step="0.01" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="parcela-sigpac">Referencia SIGPAC (SIEX)</label>
+                                <input type="text" id="parcela-sigpac" placeholder="Ej: 13/045/0/0/1/2">
+                            </div>
+                            <div class="form-group">
+                                <label for="parcela-notas">Notas</label>
+                                <input type="text" id="parcela-notas" placeholder="Notas opcionales...">
+                            </div>
+                            <div class="form-group">
+                                <label for="parcela-lat">Latitud</label>
+                                <input type="number" id="parcela-lat" placeholder="Ej: 38.524" step="any">
+                            </div>
+                            <div class="form-group">
+                                <label for="parcela-lng">Longitud</label>
+                                <input type="number" id="parcela-lng" placeholder="Ej: -3.562" step="any">
+                            </div>
+                            <div class="form-group flex-end">
+                                 <button type="button" class="btn btn-secondary btn-full" id="btn-detect-pos" title="Detectar mi ubicación actual">
+                                    📍 Detectar Mi Ubicación
+                                 </button>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="btn-save-parcela">
+                                <span>🌱</span> Añadir Parcela
+                            </button>
+                            <button type="button" class="btn btn-ghost" id="btn-cancel-edit-parcela" onclick="app._cancelEditParcela()" hidden>
+                                ✖ Cancelar Edición
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <div class="card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                        <h3 style="margin:0;">📋 Listado de Parcelas</h3>
+                        <span class="badge badge-info" id="parcelas-total-ha" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">📐 Total: 0 ha</span>
+                    </div>
+                    <div id="parcelas-list" class="items-list">
+                        <p class="empty-msg">No hay parcelas registradas. ¡Añade tu primera parcela!</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== TRABAJOS ===== -->
+            <section class="content-section" id="section-trabajos">
+                <div class="section-header animate-fade-in-up">
+                    <h1>🔧 Tipos de Trabajo</h1>
+                    <p class="section-desc">Gestiona los tipos de trabajo disponibles</p>
+                </div>
+
+                <div class="card form-card">
+                    <h3>➕ Nuevo Tipo de Trabajo</h3>
+                    <form id="form-trabajo" class="inline-form">
+                        <div class="form-group">
+                            <label for="trabajo-nombre">Nombre del trabajo</label>
+                            <input type="text" id="trabajo-nombre" placeholder="Ej: Fumigación" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="trabajo-icono">Icono (emoji)</label>
+                            <input type="text" id="trabajo-icono" placeholder="Ej: 🌾" maxlength="2">
+                        </div>
+                        <div class="form-group">
+                            <label for="trabajo-tipo-legal">Tipo Legal (SIEX)</label>
+                            <select id="trabajo-tipo-legal">
+                                <option value="general">General (Labores, Riego, Poda)</option>
+                                <option value="fitosanitario">Fitosanitario (Tratamientos)</option>
+                                <option value="abono">Abonado / Fertilización</option>
+                                <option value="cosecha">Cosecha / Recolección</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span>🔧</span> Añadir Trabajo
+                        </button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>📋 Tipos de Trabajo Registrados</h3>
+                    <div id="trabajos-list" class="items-list">
+                        <p class="empty-msg">No hay tipos de trabajo registrados.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== REGISTRAR ===== -->
+            <section class="content-section" id="section-registrar">
+                <div class="section-header animate-fade-in-up">
+                    <h1>📝 Registrar Trabajo</h1>
+                    <p class="section-desc">Registra una actividad realizada en una parcela</p>
+                </div>
+
+                <div class="card form-card register-card">
+                    <div class="register-quick-tools">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-reg-toggle">⚡ Modo Parte Rápido</button>
+                        <button type="button" class="btn btn-ghost btn-sm" id="quick-set-today">Hoy</button>
+                        <button type="button" class="btn btn-ghost btn-sm" id="quick-set-hour">1h</button>
+                        <button type="button" class="btn btn-ghost btn-sm" id="quick-clear-extra">Limpiar extras</button>
+                    </div>
+                    <form id="form-registro" class="register-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reg-parcela">🗺️ Parcela</label>
+                                <select id="reg-parcela" required>
+                                    <option value="">Selecciona parcela...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="reg-trabajo">🔧 Tipo de Trabajo</label>
+                                <select id="reg-trabajo" required>
+                                    <option value="">Selecciona trabajo...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reg-fecha">📅 Fecha</label>
+                                <input type="date" id="reg-fecha" required>
+                            </div>
+                            <div class="form-group quick-optional">
+                                <label for="reg-maquinaria">🚜 Maquinaria</label>
+                                <select id="reg-maquinaria">
+                                    <option value="">Ninguna / Manual</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="reg-duracion">⏱️ Duración (Horas)</label>
+                                <div class="timer-input-group">
+                                    <input type="number" id="reg-duracion" step="0.1" min="0" placeholder="Ej: 2.5">
+                                    <div class="work-timer">
+                                        <div id="timer-display" class="timer-clock">00:00:00</div>
+                                        <button type="button" class="btn btn-timer" id="btn-timer-toggle">
+                                            <span id="timer-icon">▶️</span>
+                                            <span id="timer-label">Iniciar</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group quick-optional">
+                                <label for="reg-notas">📝 Observaciones</label>
+                                <input type="text" id="reg-notas" placeholder="Notas opcionales sobre el trabajo...">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group quick-optional">
+                                <label for="reg-num-personas">🧑‍🌾 Número de personas</label>
+                                <input type="number" id="reg-num-personas" min="1" value="1" required>
+                            </div>
+                            <div class="form-group quick-optional">
+                                <label for="reg-nombres-personas">📝 Nombre de los trabajadores</label>
+                                <input type="text" id="reg-nombres-personas" placeholder="Ej: Juan, Pedro, María...">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group quick-optional" style="min-width: 100%;">
+                                <label for="reg-coste">💶 Coste o Ingreso (€)</label>
+                                <input type="number" id="reg-coste"
+                                    placeholder="Ej: 150.50 (Usa positivo para gastos, negativo si es ingreso)"
+                                    step="0.01">
+                            </div>
+                        </div>
+
+                        <!-- CAMPOS SIEX: FITOSANITARIO (Oculto por defecto) -->
+                        <div id="siex-fito-container" class="card quick-optional" style="background: rgba(239, 83, 80, 0.05); border-color: rgba(239, 83, 80, 0.2); display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ef5350;">🧪 Datos Tratamiento Fitosanitario (SIEX)</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="reg-fito-inventario">📦 Producto del Almacén</label>
+                                    <select id="reg-fito-inventario">
+                                        <option value="">-- Elige del inventario o escribe abajo --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-fito-producto">Producto Fitosanitario</label>
+                                    <input type="text" id="reg-fito-producto" placeholder="Ej: Abamectina 1.8%">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-fito-nregistro">Nº Registro MITECO</label>
+                                    <input type="text" id="reg-fito-nregistro" placeholder="Ej: 12345">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="reg-fito-cantidad">Cantidad Usada</label>
+                                    <input type="number" id="reg-fito-cantidad" step="0.01" placeholder="Ej: 0.5">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-fito-dosis">Dosis</label>
+                                    <input type="text" id="reg-fito-dosis" placeholder="Ej: 2 Litros/ha">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="min-width: 100%;">
+                                    <label for="reg-fito-plaga">Plaga / Enfermedad</label>
+                                    <input type="text" id="reg-fito-plaga" placeholder="Ej: Psila del pistachero">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="min-width: 100%;">
+                                    <label for="reg-fito-carnet">Nº Carnet Aplicador</label>
+                                    <input type="text" id="reg-fito-carnet" placeholder="Ej: ES-12-345678">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CAMPOS SIEX: ABONADO (Oculto por defecto) -->
+                        <div id="siex-abono-container" class="card quick-optional" style="background: rgba(163, 214, 94, 0.05); border-color: rgba(163, 214, 94, 0.2); display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: var(--pistachio-400);">🌾 Datos Plan Abonado / Riego (SIEX)</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="reg-abono-inventario">📦 Fertilizante del Almacén</label>
+                                    <select id="reg-abono-inventario">
+                                        <option value="">-- Elige del inventario o escribe abajo --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-abono-nutrientes">Nutrientes (N-P-K u otros)</label>
+                                    <input type="text" id="reg-abono-nutrientes" placeholder="Ej: 8-15-15 o Nitrato Potásico">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="reg-abono-cantidad-num">Cantidad Usada</label>
+                                    <input type="number" id="reg-abono-cantidad-num" step="0.01" placeholder="Ej: 50">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-abono-cantidad">Descripción Dosis</label>
+                                    <input type="text" id="reg-abono-cantidad" placeholder="Ej: 100 kg/ha">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="min-width: 100%;">
+                                    <label for="reg-abono-agua">Agua de Riego Usada (m³)</label>
+                                    <input type="number" id="reg-abono-agua" placeholder="Ej: 50" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CAMPOS SIEX: COSECHA (Oculto por defecto) -->
+                        <div id="siex-cosecha-container" class="card quick-optional" style="background: rgba(255, 183, 77, 0.05); border-color: rgba(255, 183, 77, 0.2); display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ffb74d;">🧺 Datos Cosecha / Trazabilidad</h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="reg-cosecha-kg">Kg Recolectados en Parcela</label>
+                                    <input type="number" id="reg-cosecha-kg" placeholder="Ej: 1500" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-cosecha-lote">Lote Asociado / Albarán</label>
+                                    <input type="text" id="reg-cosecha-lote" placeholder="Ej: ALB-2024-001">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Adición de fotos directo desde el registro -->
+                        <div class="form-row quick-optional">
+                            <div class="form-group" style="min-width: 100%;">
+                                <label>📷 Adjuntar Fotos al Trabajo (opcional)</label>
+                                <div class="camera-buttons" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+                                    <input type="file" id="reg-foto-camera" accept="image/*" capture="environment"
+                                        hidden>
+                                    <input type="file" id="reg-foto-gallery" accept="image/*" multiple hidden>
+                                    <button type="button" class="btn btn-primary btn-camera" id="reg-btn-take-photo">
+                                        <span>📷</span> Hacer Foto
+                                    </button>
+                                    <button type="button" class="btn btn-secondary btn-camera" id="reg-btn-pick-photo">
+                                        <span>📁</span> Elegir
+                                    </button>
+                                </div>
+                                <div id="reg-upload-preview" class="upload-preview"></div>
+                                <div id="reg-upload-status" class="upload-status" hidden>
+                                    <span class="upload-spinner"></span> Guardando registro y fotos...
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-full" id="btn-save-registro">
+                            <span>✅</span> Guardar Registro
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- ===== CONSULTAR ===== -->
+            <section class="content-section" id="section-consultar">
+                <div class="section-header animate-fade-in-up">
+                    <h1>🔍 Consultar Registros</h1>
+                    <p class="section-desc">Busca y filtra el historial de trabajos</p>
+                </div>
+                <div class="card filter-card animate-fade-in-up stagger-1">
+
+                    <h3>⚙️ Filtros</h3>
+                    <div class="filters-row" id="filters-row">
+                        <div class="form-group">
+                            <label for="filter-parcela">Parcela</label>
+                            <select id="filter-parcela">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-trabajo">Trabajo</label>
+                            <select id="filter-trabajo">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-desde">Desde</label>
+                            <input type="date" id="filter-desde">
+                        </div>
+                        <div class="form-group">
+                            <label for="filter-hasta">Hasta</label>
+                            <input type="date" id="filter-hasta">
+                        </div>
+                        <button class="btn btn-secondary" id="btn-filter">
+                            🔍 Filtrar
+                        </button>
+                        <button class="btn btn-ghost" id="btn-clear-filters">
+                            ✖ Limpiar
+                        </button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="table-header">
+                        <h3>📋 Resultados</h3>
+                        <div class="table-actions">
+                            <!-- The print button remains here -->
+                            <button class="btn btn-primary btn-sm" id="btn-print">
+                                🖨️ Imprimir
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table" id="records-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Parcela</th>
+                                    <th>Trabajo</th>
+                                    <th>Personas</th>
+                                    <th>Coste (€)</th>
+                                    <th>Observaciones</th>
+                                    <th class="no-print">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="records-tbody">
+                                <tr>
+                                    <td colspan="7" class="empty-msg">No hay registros que mostrar</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-footer" id="table-footer">
+                        <span id="records-count">0 registros</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== GALERÍA DE FOTOS ===== -->
+            <section class="content-section" id="section-galeria">
+                <div class="section-header animate-fade-in-up">
+                    <h1>📷 Galería de Fotos</h1>
+                    <p class="section-desc">Fotos de tus parcelas organizadas por año</p>
+                </div>
+
+
+                <!-- Selector de parcela -->
+                <div class="card">
+                    <div class="gallery-controls">
+                        <div class="form-group">
+                            <label for="gallery-parcela">🗺️ Selecciona parcela</label>
+                            <select id="gallery-parcela">
+                                <option value="">Elige una parcela...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contenedor de galería (aparece al seleccionar parcela) -->
+                <div id="gallery-content" hidden>
+                    <!-- Upload form -->
+                    <div class="card form-card">
+                        <h3>📤 Subir Foto a Galería</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="gal-foto-anio">📅 Año</label>
+                                <select id="gal-foto-anio"></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="gal-foto-desc">📝 Descripción (opcional)</label>
+                                <input type="text" id="gal-foto-desc" placeholder="Ej: Vista general después de poda">
+                            </div>
+                        </div>
+                        <div class="camera-buttons">
+                            <input type="file" id="gal-foto-camera" accept="image/*" capture="environment" hidden>
+                            <input type="file" id="gal-foto-gallery" accept="image/*" multiple hidden>
+                            <button type="button" class="btn btn-primary btn-camera" id="gal-btn-take-photo">
+                                <span>📷</span> Hacer Foto
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-camera" id="gal-btn-pick-photo">
+                                <span>📁</span> Elegir de Galería
+                            </button>
+                        </div>
+                        <div id="gal-upload-status" class="upload-status" hidden>
+                            <span class="upload-spinner"></span> Subiendo foto...
+                        </div>
+                    </div>
+
+                    <!-- Year tabs + photo grid -->
+                    <div class="card">
+                        <div class="year-tabs" id="year-tabs"></div>
+                        <div id="photo-grid" class="photo-grid">
+                            <p class="empty-msg">No hay fotos para esta parcela</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== PLANING ANUAL ===== -->
+            <section class="content-section" id="section-planing">
+                <div class="section-header animate-fade-in-up">
+                    <h1>📅 Planing Anual</h1>
+                    <p class="section-desc">Guía de cuidados para pistachos en secano (Viso del Marqués)</p>
+                </div>
+
+
+                <div class="card">
+                    <div class="planing-controls"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3 style="margin: 0;">Progreso Anual</h3>
+                        <div class="form-group" style="margin: 0;">
+                            <select id="planing-year"
+                                style="padding: 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--glass-border); background: var(--bg-surface); color: var(--text-primary);">
+                                <!-- Años generados por JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="planing-container">
+                        <div id="planing-grid" class="planing-grid">
+                            <!-- JS will inject months cards here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== ALMACÉN ===== -->
+            <section class="content-section" id="section-almacen">
+                <div class="section-header animate-fade-in-up">
+                    <h1>📦 Almacén e Inventario</h1>
+                    <p class="section-desc">Controla tus existencias de fitos y abonos</p>
+                </div>
+
+                <div class="card form-card">
+                    <h3>➕ Añadir Producto</h3>
+                    <form id="form-almacen" class="inline-form">
+                        <div class="form-group">
+                            <label for="alm-nombre">Nombre</label>
+                            <input type="text" id="alm-nombre" placeholder="Ej: Abamectina" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="alm-tipo">Tipo</label>
+                            <select id="alm-tipo">
+                                <option value="fitosanitario">Fitosanitario</option>
+                                <option value="abono">Abono</option>
+                                <option value="herbicida">Herbicida</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="alm-stock">Stock actual</label>
+                            <input type="number" id="alm-stock" step="0.01" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="alm-ubicacion">Ubicación</label>
+                            <input type="text" id="alm-ubicacion" placeholder="Ej: Estantería A1, Nave Norte...">
+                        </div>
+                        <div class="form-group">
+                            <label for="alm-unidad">Unidad</label>
+                            <input type="text" id="alm-unidad" placeholder="L, Kg, Bolsas..." value="L">
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span>📦</span> Añadir
+                        </button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>📋 Inventario Actual</h3>
+                    <div id="almacen-list" class="items-list">
+                        <p class="empty-msg">No hay productos en el almacén.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== MAQUINARIA ===== -->
+            <section class="content-section" id="section-maquinaria">
+                <div class="section-header animate-fade-in-up">
+                    <h1>🚜 Gestión de Maquinaria</h1>
+                    <p class="section-desc">Administra tus tractores y aperos</p>
+                </div>
+
+                <div class="card form-card">
+                    <h3>➕ Nueva Máquina</h3>
+                    <form id="form-maquinaria" class="inline-form">
+                        <div class="form-group">
+                            <label for="maq-nombre">Nombre de la máquina</label>
+                            <input type="text" id="maq-nombre" placeholder="Ej: Tractor John Deere" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="maq-tipo">Tipo</label>
+                            <input type="text" id="maq-tipo" placeholder="Ej: Tractor, Atomizador...">
+                        </div>
+                        <div class="form-group">
+                            <label for="maq-coste">Coste/Hora (€)</label>
+                            <input type="number" id="maq-coste" step="0.01" value="0">
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <span>🚜</span> Añadir Máquina
+                        </button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>📋 Listado de Maquinaria</h3>
+                    <div id="maquinaria-list" class="items-list">
+                        <p class="empty-msg">No hay maquinaria registrada.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== AJUSTES Y BACKUPS ===== -->
+            <section class="content-section" id="section-ajustes">
+                <div class="section-header">
+                    <h1>⚙️ Ajustes y Backups</h1>
+                    <p class="section-desc">Copias de seguridad y opciones de la aplicación</p>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card backup-card">
+                        <h3>📥 Copias de Seguridad y SIEX</h3>
+                        <p style="color:var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Descarga toda
+                            la base de datos de tu Cuaderno de Campo (Parcelas, Trabajos, Registros y Planing) en un
+                            archivo JSON para mantenerla a salvo en tu ordenador o móvil.</p>
+                        <button class="btn btn-primary btn-full" id="btn-export">
+                            <span style="font-size: 1.2rem;">📦</span> Descargar Copia Completa (JSON)
+                        </button>
+                        
+                        <p style="color:var(--text-secondary); font-size: 0.9rem; margin-top: 2rem; margin-bottom: 1.5rem;">
+                            Exportar listado de trabajos y tratamientos en formato de tabla para inspecciones, REOPF y presentación oficial (Normativa SIEX).
+                        </p>
+                        <button class="btn btn-secondary btn-full" id="btn-export-siex" style="border-color: var(--success); color: var(--success);">
+                            <span style="font-size: 1.2rem;">📊</span> Exportar Registros a CSV (Formato Excel/SIEX)
+                        </button>
+                        
+                        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">* Las fotografías no
+                            se incluyen en los archivos generados, se mantienen en el servidor.</p>
+                    </div>
+
+                    <div class="card warning-card"
+                        style="border-color: rgba(239, 83, 80, 0.3); background: rgba(239, 83, 80, 0.05);">
+                        <h3 style="color: #ef5350;">⚠️ Zona de Peligro</h3>
+                        <p style="color:var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Opciones
+                            avanzadas. Úsalo con cuidado.</p>
+                        <button class="btn btn-secondary btn-full" style="opacity: 0.5; cursor: not-allowed;"
+                            title="Próximamente">
+                            <span>🧹</span> Borrar todos los datos (Próximamente)
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== AYUDA Y SOPORTE ===== -->
+            <section class="content-section" id="section-ayuda">
+                <div class="section-header animate-fade-in-up">
+                    <h1>❓ Ayuda y Guía de Uso</h1>
+                    <p class="section-desc">Aprende a sacar el máximo partido a Garuto</p>
+                </div>
+
+                <div class="help-sections animate-fade-in-up stagger-1" style="display: flex; flex-direction: column; gap: 1rem; max-width: 900px; margin: 0 auto;">
+                    
+                    <!-- Introducción -->
+                    <div class="card help-accordion">
+                        <details open>
+                            <summary><h3>📊 1. Inicio y Panel de Control</h3></summary>
+                            <div class="help-content">
+                                <p>Al entrar en Garuto, verás un resumen automático de tu explotación:</p>
+                                <ul>
+                                    <li><strong>Resumen Estadístico:</strong> Conocerás tus hectáreas activas, volumen de tareas anotadas y el balance económico global.</li>
+                                    <li><strong>Clima en vivo:</strong> Datos de tu municipio con consejos del Asistente (ej: precaución por lluvias o temperaturas bajas).</li>
+                                    <li><strong>Últimos Registros y Gráficos:</strong> Accesos ultrarrápidos para revisar la última labor hecha por los trabajadores y la distribución mensual del gasto en un vistazo.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Parcelas -->
+                    <div class="card help-accordion">
+                        <details>
+                            <summary><h3>🗺️ 2. Gestión de Parcelas</h3></summary>
+                            <div class="help-content">
+                                <p>El núcleo cartográfico físico donde registras tus tierras:</p>
+                                <ul>
+                                    <li><strong>Geolocalización In-Situ:</strong> Si estás en medio del terreno probando la app, pulsa "Detectar Mi Ubicación" para que el GPS asigne automáticamente las coordenadas de la parcela a la ficha.</li>
+                                    <li><strong>Catastro/SIGPAC:</strong> Registra la referencia completa de cada polígono/parcela para poder emitir partes correctamente. Tienes un botón verde "SIGPAC" bajo cada parcela para saltar directamente al visor oficial del mapa.</li>
+                                    <li><strong>Mapa de Árboles Interactivo:</strong> Se activa con el botón "🌿 Mapa" de la tabla. Abre una vista satelital privada donde podrás censar árbol por árbol haciendo clics sobre la imagen para asignarles su estado actual (Macho, Hembra, Injertado, Marra, Replantado...).</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Trabajos y SIEX -->
+                    <div class="card help-accordion">
+                        <details>
+                            <summary><h3>📝 3. Registrar Trabajo (Modo Rápido y SIEX)</h3></summary>
+                            <div class="help-content">
+                                <p>Esta sección sirve para anotar los partes diarios y tener tu Cuaderno de Explotación validado ante el ministerio.</p>
+                                <ul>
+                                    <li><strong>⚡ Modo Parte Rápido:</strong> ¿No tienes tiempo y la labor es sencilla? Dale a este botón y ocultará todos los datos avanzados administrativos. La pantalla quedará vacía y solo te obligará a seleccionar la acción y la parcela básica.</li>
+                                    <li><strong>Botones de Auto-rellenado (Hoy, 1h):</strong> Toca "Hoy" para estampar la fecha actual sin tocar calendarios, y toca "1h" si echaste una horita rápida en vez de marcar relojes.</li>
+                                    <li><strong>Cronómetro:</strong> Si de verdad empiezas a trabajar en ese momento, dale al "Play". Cuando te limpies el sudor y acabes, vuélvelo a pulsar y tendrás tabulado tu tiempo exacto de peonadas.</li>
+                                    <li><strong>Despliegue SIEX:</strong> Aparece solo si hace falta. Si escoges que tipo de labor es un tratamiento "Fitosanitario" o "Abonado", emergerán submenús oficiales para recabar Dosis, N.º MITECO, Plagas y tu N.º de Carnet. Cumplirás la ley de Cuadernos Digitales de inmediato.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+                    
+                    <!-- Consulta e Historial -->
+                    <div class="card help-accordion">
+                        <details>
+                            <summary><h3>🔍 4. Consultar Historial</h3></summary>
+                            <div class="help-content">
+                                <ul>
+                                    <li>Usa el filtro de fechas (Ej: "Desde el 1 de Enero hasta Hoy") sobre una "Parcela exacta" para que el programa te escupa una tabla depurada.</li>
+                                    <li><strong>Imprimir:</strong> Usa el botón si viene una inspector y necesita un listado ordenado sin interfaz negra. Saldrá sobre fondo blanco ideal para tu impresora.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Almacén y Maquinaria -->
+                    <div class="card help-accordion">
+                        <details>
+                            <summary><h3>📦 5. Inventario, Gastos y Reparaciones</h3></summary>
+                            <div class="help-content">
+                                <p>Controla tus máquinas y el dinero invertido:</p>
+                                <ul>
+                                    <li><strong>Almacén Eficiente:</strong> Tú cargas los sacos de Nitrato Potásico de 50Kg con su precio y los subes al almacén virtual. Cuando luego te vas a registrar un trabajo indicando "Eché tanto abono del inventario", el propio sistema se encarga de <b>rebajar automáticamente</b> el sobrante del Almacén y <b>cargar al coste base</b> dicho material gastado en esa parcela en concreto. ¡Contabilidad 100% ciega!</li>
+                                    <li><strong>Gastos de Tractor:</strong> Crea tus máquinas y asócialas a un coste por hora de motor. Añade a todo esto mantenimientos, aceites, ITEAF y reparaciones y todo convergerá en el resumen inicial.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Offline y Pistachín -->
+                    <div class="card help-accordion" style="border-color: var(--pistachio-400); background: rgba(163, 214, 94, 0.05);">
+                        <details>
+                            <summary><h3 style="color: var(--pistachio-400);">📶 6. Offline Total y Asistente Pistachín</h3></summary>
+                            <div class="help-content">
+                                <ul>
+                                    <li><strong>¿Trabajas sin raya de cobertura?</strong> Sigue anotando y tecleando. Toda la App de Garuto seguirá viva. Guardará los paquetes con un candado para ellos solos hasta pillar una brizna de Internet o WiFi. Entonces, sin avisarte, re-sincronizará el Servidor.</li>
+                                    <li><strong>Agente IA Experto:</strong> Abajo flotando a la derecha verás una pequeña cabeza de maní. Él es "Pistachín". Solo tienes que llamarle e indicarle cosas como: <i>"Acabo de ver manchitas blancas en el árbol, ¿es verticillium?"</i>. Él cotejará tu libreta de campo, recordará tus últimas lluvias, leerá la base de datos de tratamientos de la sección 4, y te contestará con instrucciones de fumigado precisas a ejecutar.</li>
+                                </ul>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Manuales PDF -->
+                    <div class="card help-accordion" style="border: 2px solid var(--pistachio-500); background: var(--bg-surface-elevated);">
+                        <details open>
+                            <summary><h3>📚 7. Manuales Detallados (PDF)</h3></summary>
+                            <div class="help-content">
+                                <p>Descarga o visualiza las guías completas del proyecto en formato PDF para una consulta más profunda o impresión:</p>
+                                <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+                                    <a href="manual_usuario.pdf" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                        📖 Manual de Usuario (PDF)
+                                    </a>
+                                    <a href="manual_tecnico_instalacion.pdf" target="_blank" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                        🛠️ Manual Técnico (PDF)
+                                    </a>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                </div>
+
+                <div style="margin-top: 2rem; text-align: center;">
+                    <p style="color: var(--text-muted);">Garuto v2026 — El futuro del campo en tus manos.</p>
+                </div>
+            </section>
+
+            <!-- FOOTER -->
+            <footer class="main-footer">
+                <p>&copy;
+                    <script>document.write(new Date().getFullYear())</script> <a href="https://tituta.es/JCGM.DEV/"
+                        target="_blank" rel="noopener noreferrer">&lt;/thebrave&gt;</a>. Todos los derechos reservados.
+                </p>
+            </footer>
+
+        </main>
+    </div>
+
+    <!-- MODAL DOCUMENTACIÓN -->
+    <div id="modal-docs" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>📂 Documentación: <span id="docs-parcela-name">...</span></h2>
+                <button class="close-modal" id="close-modal-docs">✕</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Formulario añadir doc -->
+                <form id="form-doc" class="doc-add-form">
+                    <input type="hidden" id="doc-parcela-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="doc-titulo">📌 Título del documento</label>
+                            <input type="text" id="doc-titulo" placeholder="Ej: Escritura, SIGPAC, Catastro..." required>
+                        </div>
+                        <div class="form-group">
+                            <label for="doc-url">🔗 Enlace / URL (opcional)</label>
+                            <input type="url" id="doc-url" placeholder="https://...">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="doc-desc">📝 Breve descripción</label>
+                        <input type="text" id="doc-desc" placeholder="Notas sobre este documento...">
+                    </div>
+                    <div class="form-group">
+                        <label for="doc-archivo">📁 Subir Archivo (PDF/Imagen - Máx 10MB)</label>
+                        <input type="file" id="doc-archivo" accept="application/pdf,image/*">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">➕ Añadir Documento</button>
+                </form>
+
+                <hr style="margin: 2rem 0; opacity: 0.1;">
+
+                <!-- Listado recuadros -->
+                <div id="docs-list" class="docs-grid">
+                    <!-- Cards will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REPARACIONES MAQUINARIA -->
+    <div id="modal-reparaciones" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>🚜 Reparaciones: <span id="reparaciones-maquina-name">...</span></h2>
+                <button class="close-modal" id="close-modal-reparaciones">✕</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Formulario añadir reparación -->
+                <form id="form-reparacion" class="doc-add-form">
+                    <input type="hidden" id="reparacion-maquina-id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reparacion-fecha">📅 Fecha</label>
+                            <input type="date" id="reparacion-fecha" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="reparacion-coste">💶 Coste (€)</label>
+                            <input type="number" id="reparacion-coste" step="0.01" placeholder="Ej: 150.50" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="reparacion-desc">📝 Descripción / Notas</label>
+                        <input type="text" id="reparacion-desc" placeholder="Ej: Cambio de aceite y filtros, reparación de bomba..." required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">➕ Añadir Registro de Gasto</button>
+                </form>
+
+                <hr style="margin: 2rem 0; opacity: 0.1;">
+
+                <!-- Listado reparaciones -->
+                <div id="reparaciones-list" class="items-list">
+                    <!-- Se renderizan aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ASISTENTE IA: PISTACHÍN -->
+    <div id="pistachin-container" class="pistachin-wrapper">
+        <div id="pistachin-chat" class="pistachin-chat-window">
+            <div class="pistachin-header">
+                <div class="pistachin-status">
+                    <div class="pistachin-avatar-img">
+                        <img src="nut.png" alt="Pistachín" style="width: 100%; height: 100%; object-fit: contain;">
+                    </div>
+                    <div>
+                        <span class="pistachin-name">Pistachín</span>
+                        <span class="pistachin-online">En línea</span>
+                    </div>
+                </div>
+                <button id="pistachin-close" class="pistachin-close-btn">✕</button>
+            </div>
+            <div id="pistachin-messages" class="pistachin-messages-area">
+                <div class="message bot">
+                    Hola! Soy <b>Pistachín</b>, tu asistente agrícola. <img src="nut.png" style="width: 20px; vertical-align: middle;"> <br>¿En qué puedo ayudarte hoy?
+                </div>
+            </div>
+            <div id="pistachin-quick-actions" class="pistachin-quick-actions"></div>
+            <form id="pistachin-form" class="pistachin-input-area">
+                <input type="text" id="pistachin-input" placeholder="Pregúntame algo..." autocomplete="off">
+                <button type="submit" class="pistachin-send-btn">🚀</button>
+            </form>
+        </div>
+        <button id="pistachin-toggle" class="pistachin-fab" title="Hablar con Pistachín">
+            <div class="fab-logo-img">
+                <img src="nut.png" alt="Icono" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+            <span class="fab-label">¿Dudas? Pregunta a Pistachín</span>
+        </button>
+    </div>
+
+    <!-- OVERLAY for mobile sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- MODAL RECORDATORIO PLANING MENSUAL -->
+    <div id="modal-planning-reminder" class="modal">
+        <div class="modal-content card" style="max-width: 500px; border: 2px solid var(--pistachio-400); box-shadow: 0 0 30px rgba(163, 214, 94, 0.2);">
+            <div class="modal-header">
+                <h2 id="reminder-title" style="display: flex; align-items: center; gap: 0.5rem;">📅 Recordatorio de Tareas</h2>
+                <button class="close-modal" id="close-modal-reminder">✕</button>
+            </div>
+            <div class="modal-body" id="reminder-body" style="padding: 1rem 0;">
+                <!-- Dinámico -->
+            </div>
+            <div class="modal-footer" style="padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 0.8rem;">
+                <button class="btn btn-primary btn-full" id="btn-enable-notifications">
+                    <span>🔔</span> Activar Alertas en este equipo
+                </button>
+                <button class="btn btn-secondary btn-full" id="btn-close-reminder">
+                    Entendido, gracias
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('Service Worker Registrado: ', reg.scope))
+                    .catch((err) => console.log('Error registro SW: ', err));
+            });
+        }
+    </script>
+</body>
+</html>

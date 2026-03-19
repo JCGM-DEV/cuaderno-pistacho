@@ -1,0 +1,23 @@
+{
+  "name": "Garuto",
+  "short_name": "Garuto",
+  "description": "Cuaderno de Campo Agrícola para gestión de parcelas, trabajos y planing anual.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#161c16",
+  "theme_color": "#2d382d",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+<?php
+// visor_mapa.php — Mapa interactivo GEOGRÁFICO v9 (Blindado contra Caché SW)
+// Este archivo reemplaza a mapa.php para evitar bloqueos de Service Worker antiguos.
+
+session_start();
+
+if (empty($_SESSION['user'])) {
+    header('Location: index.html');
+    exit;
+}
+
+// PHP Fallbacks con sintaxis ultra-compatible
+$pId = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$pNm = isset($_GET['nombre']) ? htmlspecialchars($_GET['nombre'], ENT_QUOTES) : 'Parcela';
+$pLt = isset($_GET['lat']) ? floatval($_GET['lat']) : 0;
+$pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🌿 Mapa — <?php echo $pNm; ?></title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0d1117; --green: #a3d65e; --header-h: 60px; }
+        body, html { margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:var(--bg); color:white; overflow:hidden; }
+        .top-bar { height:var(--header-h); background:#161b22; display:flex; align-items:center; padding:0 1rem; gap:1rem; border-bottom:2px solid var(--green); z-index:1000; }
+        .top-bar h1 { font-size:1rem; margin:0; flex:1; color:var(--green); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .btn-back { color:white; text-decoration:none; font-size:0.9rem; background:rgba(255,255,255,0.1); padding:0.5rem 0.8rem; border-radius:8px; }
+        .btn-save { background:var(--green); color:#051005; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:700; cursor:pointer; }
+        #map { height:calc(100% - var(--header-h)); width:100%; z-index:1; }
+        #debug-log { position:absolute; top:70px; left:10px; z-index:9999; width:300px; max-height:220px; overflow-y:auto; background:rgba(0,0,0,0.9); color:#0f0; font-family:monospace; font-size:11px; padding:10px; border-radius:8px; border:1px solid #0f0; display:none; }
+        .bottom-panel { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:94%; max-width:650px; background:rgba(22,27,34,0.95); backdrop-filter:blur(15px); padding:0.8rem; border-radius:20px; border:1px solid rgba(163,214,94,0.3); z-index:1000; }
+        .legend-row { display:flex; justify-content:space-around; gap:0.4rem; }
+        .tool-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:0.3rem; background:none; border:2px solid transparent; padding:0.5rem 0.1rem; border-radius:10px; cursor:pointer; color:rgba(255,255,255,0.5); }
+        .tool-btn.active { background:rgba(163,214,94,0.1); border-color:var(--green); color:white; }
+        .dot { width:18px; height:18px; border-radius:50%; border:2px solid rgba(255,255,255,0.3); }
+        .dot.hembra { background:#4caf50; } .dot.macho { background:#fff; border-color:#999; } .dot.injerto { background:#2196f3; } .dot.sin_injerto { background:#333; } .dot.marra { background:#f44336; }
+        .tool-label { font-size:0.6rem; font-weight:700; text-transform:uppercase; }
+        .tree-marker { border-radius:50%; border:2.5px solid white; box-shadow:0 0 5px rgba(0,0,0,0.5); }
+        .tree-marker.hembra { background:#4caf50; } .tree-marker.macho { background:#fff; border-color:#999; } .tree-marker.injerto { background:#2196f3; } .tree-marker.sin_injerto { background:#333; } .tree-marker.marra { background:#f44336; }
+        .toast { position:fixed; top:80px; left:50%; transform:translateX(-50%); background:#1e2a1e; border:1px solid var(--green); color:var(--green); padding:0.8rem 1.5rem; border-radius:12px; z-index:2000; }
+        /* Stats Panel */
+        .stats-panel { position:absolute; top:calc(var(--header-h) + 12px); right:12px; z-index:1000; background:rgba(22,27,34,0.92); backdrop-filter:blur(12px); border:1px solid rgba(163,214,94,0.35); border-radius:14px; padding:0.7rem 0.9rem; min-width:160px; }
+        .stats-panel h4 { margin:0 0 0.4rem; font-size:0.75rem; color:var(--green); text-transform:uppercase; letter-spacing:0.5px; }
+        .stats-total { font-size:1.4rem; font-weight:800; color:white; margin-bottom:0.5rem; text-align:center; }
+        .stats-total small { font-size:0.65rem; font-weight:400; color:rgba(255,255,255,0.5); display:block; }
+        .stats-row { display:flex; align-items:center; gap:0.4rem; padding:0.2rem 0; font-size:0.72rem; color:rgba(255,255,255,0.8); }
+        .stats-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .stats-dot.hembra { background:#4caf50; } .stats-dot.macho { background:#fff; } .stats-dot.injerto { background:#2196f3; } .stats-dot.sin_injerto { background:#555; } .stats-dot.marra { background:#f44336; }
+        .stats-count { margin-left:auto; font-weight:700; color:white; }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <a href="javascript:history.back()" class="btn-back">← Volver</a>
+        <h1 id="page-title">🌿 <?php echo $pNm; ?></h1>
+        <button class="btn-save" id="btn-save">💾 Guardar</button>
+    </div>
+    <div id="debug-log"><b>DEBUG v9 (Blindado)</b><br></div>
+    <div id="map"></div>
+    <div class="stats-panel" id="stats-panel">
+        <h4>🌳 Resumen Árboles</h4>
+        <div class="stats-total"><span id="stat-total">0</span><small>árboles totales</small></div>
+        <div class="stats-row"><span class="stats-dot hembra"></span> Hembras <span class="stats-count" id="stat-hembra">0</span></div>
+        <div class="stats-row"><span class="stats-dot macho"></span> Machos <span class="stats-count" id="stat-macho">0</span></div>
+        <div class="stats-row"><span class="stats-dot injerto"></span> Injertados <span class="stats-count" id="stat-injerto">0</span></div>
+        <div class="stats-row"><span class="stats-dot sin_injerto"></span> Sin Injertar <span class="stats-count" id="stat-sin_injerto">0</span></div>
+        <div class="stats-row"><span class="stats-dot marra"></span> Marras <span class="stats-count" id="stat-marra">0</span></div>
+    </div>
+    <div class="bottom-panel">
+        <div class="legend-row">
+            <button class="tool-btn active" data-status="hembra"><span class="dot hembra"></span><span class="tool-label">Hembra</span></button>
+            <button class="tool-btn" data-status="macho"><span class="dot macho"></span><span class="tool-label">Macho</span></button>
+            <button class="tool-btn" data-status="injerto"><span class="dot injerto"></span><span class="tool-label">Injerto</span></button>
+            <button class="tool-btn" data-status="sin_injerto"><span class="dot sin_injerto"></span><span class="tool-label">S. Inj.</span></button>
+            <button class="tool-btn" data-status="marra"><span class="dot marra"></span><span class="tool-label">Marra</span></button>
+            <button class="tool-btn" data-status="vacio" style="color:#ef5350;"><span style="font-size:1.1rem;">🗑️</span><span class="tool-label">Borrar</span></button>
+        </div>
+    </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const CONF = {
+            id: parseInt(urlParams.get('id')) || <?php echo $pId; ?>,
+            name: urlParams.get('nombre') || "<?php echo $pNm; ?>",
+            lat: parseFloat(urlParams.get('lat')) || <?php echo $pLt; ?>,
+            lng: parseFloat(urlParams.get('lng')) || <?php echo $pLn; ?>
+        };
+        function log(m, t="info"){
+            const p = document.getElementById('debug-log');
+            p.innerHTML += `<div style="color:${t==='error'?'#f88':(t!=='info'?'#ff0':'#cfc')}">[${new Date().toLocaleTimeString()}] ${m}</div>`;
+            if(t==='error') p.style.display = 'block';
+        }
+        let map, markers = [], treeData = [], selectedStatus = 'hembra', currentParcela = null;
+        async function init() {
+            log("Iniciando v9 Blindada - ID:" + CONF.id);
+            map = L.map('map', { zoomControl: false }).setView([CONF.lat || 38, CONF.lng || -3], (CONF.lat ? 19 : 6));
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 20 }).addTo(map);
+            try {
+                const res = await fetch(`api.php?action=getById&collection=parcelas&id=${CONF.id}`, { credentials: 'include' });
+                const row = await res.json();
+                if(!row || row.error) throw new Error(row?row.error:"No encontrado");
+                currentParcela = row;
+                if(row.lat && row.lng && !CONF.lat) map.setView([row.lat, row.lng], 19);
+                if(row.mapa_datos) { treeData = JSON.parse(row.mapa_datos) || []; renderMarkers(); }
+            } catch(e) { log("Error: "+e.message, "error"); }
+            map.on('click', e => {
+                if(selectedStatus==='vacio') return;
+                const nt = { lat:e.latlng.lat, lng:e.latlng.lng, status:selectedStatus };
+                treeData.push(nt); addMarker(nt, treeData.length-1);
+                updateStats();
+            });
+            document.querySelectorAll('.tool-btn').forEach(b => b.onclick = () => {
+                document.querySelectorAll('.tool-btn').forEach(x => x.classList.remove('active'));
+                b.classList.add('active'); selectedStatus = b.dataset.status;
+            });
+            document.getElementById('btn-save').onclick = save;
+            document.getElementById('page-title').onclick = () => { const p = document.getElementById('debug-log'); p.style.display = p.style.display==='block'?'none':'block'; };
+        }
+        function addMarker(t, i) {
+            if(!t) return;
+            const icon = L.divIcon({ className:`tree-marker ${t.status}`, iconSize:[20,20] });
+            const m = L.marker([t.lat, t.lng], {icon}).addTo(map);
+            m.on('click', e => {
+                L.DomEvent.stopPropagation(e);
+                if(selectedStatus==='vacio') { map.removeLayer(m); treeData[i]=null; }
+                else { treeData[i].status=selectedStatus; m.getElement().className=`leaflet-marker-icon tree-marker ${selectedStatus} leaflet-zoom-animated leaflet-interactive`; }
+                updateStats();
+            });
+            markers.push(m);
+        }
+        function renderMarkers() { markers.forEach(m => map.removeLayer(m)); markers=[]; treeData.forEach((t,i) => addMarker(t,i)); updateStats(); }
+        function updateStats() {
+            const active = treeData.filter(t => t !== null);
+            const counts = { hembra:0, macho:0, injerto:0, sin_injerto:0, marra:0 };
+            active.forEach(t => { if(counts.hasOwnProperty(t.status)) counts[t.status]++; });
+            document.getElementById('stat-total').textContent = active.length;
+            Object.keys(counts).forEach(k => { const el = document.getElementById('stat-'+k); if(el) el.textContent = counts[k]; });
+        }
+        async function save() {
+            const btn = document.getElementById('btn-save'); btn.disabled=true; btn.textContent='...';
+            try {
+                const res = await fetch(`api.php?action=update&collection=parcelas&id=${CONF.id}`, {
+                    method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ nombre:CONF.name, lat:map.getCenter().lat, lng:map.getCenter().lng, mapa_datos:JSON.stringify(treeData.filter(x=>x!==null)) })
+                });
+                const r = await res.json();
+                if(r.success) { showToast("✅ Guardado"); treeData=treeData.filter(x=>x!==null); renderMarkers(); }
+                else throw new Error(r.error);
+            } catch(e) { log("Error: "+e.message,"error"); alert(e.message); }
+            btn.disabled=false; btn.textContent='💾 Guardar';
+        }
+        function showToast(m){ const t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(()=>t.remove(), 2000); }
+        init();
+    </script>
+</body>
+</html>
