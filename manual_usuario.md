@@ -13,7 +13,7 @@ Al entrar en Garuto, lo primero que verás es un resumen visual de todo lo que o
 - **KPIs en Tiempo Real**: Visualiza rápidamente el número de parcelas, el balance económico del año, los registros realizados este mes y las hectáreas totales.
 - **Gráfico de Gastos**: Un gráfico interactivo que muestra la evolución mensual de tus costes operativos.
 - **Gráfico de Labores**: Distribución porcentual de los tipos de trabajo realizados (Riegos, Podas, Fitos...).
-- **Servicio Meteorológico Local**: Datos exactos de **Viso del Marqués**, con previsión de lluvia, viento y temperatura. Además, Garuto te dará **consejos agronómicos** basados en el tiempo actual.
+- **Servicio Meteorológico Avanzado**: Datos exactos de **Viso del Marqués** optimizados para el campo. Incluye **Índice UV** (para protección solar), **Visibilidad**, **Dirección del Viento**, y horas de **Salida/Ocaso**. Garuto te dará consejos agronómicos dinámicos basados en estas métricas.
 - **Avisos Inteligentes (Toast)**: La aplicación utiliza un sistema de avisos moderno y no intrusivo que te confirmará cada acción (guardado, errores, stock bajo) sin interrumpir tu navegación.
 
 ![Mockup Dashboard](file:///home/thebrave/.gemini/antigravity/brain/79a9b0f1-de96-4f32-9486-a9866b06b238/dashboard_mockup_pistacho_1773945047965.png)
@@ -72,6 +72,9 @@ Lleva un control estricto de tus insumos.
 - "¿Cuándo fue el último riego en La Joya?"
 - "¿Qué tengo que hacer este mes?"
 - "Llévame a la pantalla de inventario."
+- "Quiero añadir maquinaria."
+
+**Mando de Control**: Pistachín ahora puede conducirte a cualquier parte del proyecto. Si le pides hacer algo (ej: "tengo que agregar a almacén algo"), él te llevará a la pantalla correcta y te explicará paso a paso cómo hacerlo.
 
 Además, Pistachín te mostrará **alertas proactivas** si detecta que falta alguna labor crítica según la temporada o si el stock de algún producto es crítico.
 
@@ -99,6 +102,13 @@ Tus datos son tuyos y están seguros.
 Tu seguridad es nuestra prioridad. 
 - **Cambio de Contraseña**: Puedes actualizar tu contraseña en cualquier momento desde la sección **Configuración > Seguridad**. Deberás introducir tu contraseña actual por seguridad antes de establecer la nueva.
 - **Hashing de Seguridad**: Tus credenciales están protegidas por algoritmos de cifrado de grado bancario (BCRYPT).
+
+---
+## 10. Gestión de Usuarios y Personal (Solo Administradores)
+Si tienes el rol de **Administrador**, verás una tarjeta adicional en **Ajustes**:
+- **Gestión de Personal**: Crea fichas para tus trabajadores con su **Email** y **Teléfono**.
+- **Control de Roles**: Decide quién tiene acceso total (Admin) o solo de consulta/registro (Usuario).
+- **Actualización de Claves**: Como administrador, puedes resetear la contraseña de cualquier usuario si la olvida.
 
 ---
 © 2026 </TheBrave> Cuaderno Pistacho — Gestionando el futuro del oro verde.

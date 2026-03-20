@@ -3044,27 +3044,34 @@ body::after {
     box-shadow: var(--shadow-lg);
 }
 
-#form-change-password .input-group-modern {
+/* Utility: Modern Input Groups (Globalized) */
+.input-group-modern {
     margin-bottom: 1.25rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-#form-change-password .input-modern {
+.input-group-modern label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.input-modern {
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.1);
     color: #fff;
     padding: 0.85rem 1.2rem;
     border-radius: 12px;
     width: 100%;
+    transition: all 0.2s;
 }
 
-#form-change-password label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-
-#form-change-password .input-modern:focus {
+.input-modern:focus {
     border-color: var(--pistachio-400);
     box-shadow: 0 0 15px rgba(163, 214, 94, 0.2);
     background: rgba(255,255,255,0.08);
@@ -3967,4 +3974,36 @@ body::before {
     color: #ffffff;
     font-family: 'Outfit', sans-serif;
     letter-spacing: -0.02em;
+}
+
+/* User Management Badges & Icons */
+.badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.badge-primary { background: var(--primary-light); color: var(--primary); }
+.badge-secondary { background: var(--glass-bg); color: var(--text-secondary); box-shadow: 0 0 0 1px var(--glass-border); }
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    transition: background 0.2s;
+    line-height: 1;
+}
+.btn-icon:hover { background: var(--glass-hover); }
+
+/* User Management Modal Refinements */
+#modal-usuario-form .modal-content {
+    border: 1px solid rgba(122, 182, 72, 0.4);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 15px rgba(122, 182, 72, 0.2);
+}
+
+#usuarios-table-body tr td {
+    vertical-align: middle;
 }

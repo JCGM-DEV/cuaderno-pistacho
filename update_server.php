@@ -19,6 +19,8 @@ try {
         username VARCHAR(50) NOT NULL UNIQUE,
         password VARCHAR(255) NOT NULL,
         display_name VARCHAR(100),
+        email VARCHAR(100),
+        telefono VARCHAR(20),
         role ENUM('admin', 'usuario') DEFAULT 'usuario',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");

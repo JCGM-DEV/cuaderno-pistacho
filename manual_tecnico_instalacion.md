@@ -43,7 +43,7 @@ El sistema utiliza el esquema definido en `setup.sql`, compuesto por 10 tablas p
 | `planing_progreso` | Tracking del checklist anual de tareas de secano. |
 | `documentacion` | Repositorio de escrituras, contratos y documentos legales en PDF/Imagen. |
 | `maquinaria_reparaciones` | Registro detallado de costes de mantenimiento y averías. |
-| `usuarios` | Gestión de acceso seguro (User, Password Hash BCRYPT). |
+| `usuarios` | Gestión de acceso y personal (Id, Username, Pass Hash, Display Name, Role, Email, Teléfono). |
 
 ---
 
@@ -63,9 +63,9 @@ define('DB_PASS', getenv('DB_PASS') ?: '');
 ```
 
 ### Paso 4: Actualización Automatizada (Recomendado)
-Para asegurar que tu base de datos tiene la última estructura (incluyendo la tabla de usuarios y campos financieros), sube y ejecuta `update_server.php` en tu navegador. 
-> [!IMPORTANT]
-> Borra `update_server.php` inmediatamente después de ejecutarlo por seguridad.
+Para asegurar que tu base de datos tiene la última estructura (incluyendo la tabla de usuarios, campos financieros y de contacto), simplemente navega por la aplicación o, para una actualización forzada, sube y ejecuta `update_server.php` en tu navegador.
+> [!NOTE]
+> La API (`api.php`) incluye una lógica de **Auto-Bootstrap** que detecta y crea automáticamente las columnas necesarias (`email`, `telefono`) si faltan en la tabla de usuarios.
 
 ### Paso 3: Permisos de Archivos
 La API necesita crear y escribir en:
@@ -84,6 +84,9 @@ La API se invoca mediante `api.php?action=[ACCION]`. Requiere autenticación de 
 - **`getAll`**: Devuelve todos los registros de una tabla (parámetro `collection`).
 - **`add`**: Inserta nuevos datos (detecta automáticamente cálculos de stock e integración de costes).
 - **`changePassword`**: Actualiza la contraseña del usuario actual validando la anterior (BCRYPT).
+- **`getUsers`**: (Solo Admin) Lista todos los usuarios con sus datos de contacto.
+- **`saveUser`**: (Solo Admin) Crea o edita un usuario, gestionando su rol, contraseña y ficha de contacto.
+- **`deleteUser`**: (Solo Admin) Elimina un usuario (protección activa contra auto-borrado).
 - **`uploadPhoto` / `uploadDoc`**: Gestiona la subida de archivos binarios al sistema de archivos.
 - **`getSigpacInfo`**: Proxy que consulta las APIs oficiales del SIGPAC para obtener referencias catastrales y superficies a partir de coordenadas.
 - **`export`**: Genera un volcado JSON completo para backups.

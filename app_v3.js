@@ -356,20 +356,136 @@ class GarutoApp {
             });
         }
         
+        const userForm = document.getElementById('form-manage-user');
+        if (userForm) {
+            userForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this._handleSaveUser();
+            });
+        }
+
         // Add button to ajustes section dynamically if not there
         const ajustesGrid = document.querySelector('#section-ajustes .dashboard-grid');
         if (ajustesGrid) {
-            const card = document.createElement('div');
-            card.className = 'card premium-card animate-fade-in-up';
-            card.style.borderLeft = '4px solid var(--gold-500)';
-            card.innerHTML = `
+            // Card: Seguridad (Todos)
+            const securityCard = document.createElement('div');
+            securityCard.className = 'card premium-card animate-fade-in-up';
+            securityCard.style.borderLeft = '4px solid var(--gold-500)';
+            securityCard.innerHTML = `
                 <h3>🔐 Seguridad de la Cuenta</h3>
                 <p style="color:var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.2rem;">Mantén tu cuenta protegida cambiando tu contraseña periódicamente.</p>
                 <button class="btn btn-secondary btn-full" onclick="app._toggleModal('modal-password', true)">
                     Cambiar Mi Contraseña
                 </button>
             `;
-            ajustesGrid.appendChild(card);
+            ajustesGrid.appendChild(securityCard);
+
+            // Card: Gestión de Usuarios (Admin solamente)
+            if (this.currentUser && this.currentUser.role === 'admin') {
+                const adminCard = document.createElement('div');
+                adminCard.className = 'card premium-card animate-fade-in-up';
+                adminCard.style.borderLeft = '4px solid var(--primary)';
+                adminCard.innerHTML = `
+                    <h3>👥 Gestión de Usuarios</h3>
+                    <p style="color:var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.2rem;">Administra el personal, sus roles y accesos a la plataforma.</p>
+                    <button class="btn btn-primary btn-full" onclick="app._openUserManagement()">
+                        Administrar Usuarios
+                    </button>
+                `;
+                ajustesGrid.appendChild(adminCard);
+            }
+        }
+    }
+
+    // ---- User Management (Admin CRUD) ----
+    async _openUserManagement() {
+        this._toggleModal('modal-usuarios-lista', true);
+        this._renderUserList();
+    }
+
+    async _renderUserList() {
+        const tbody = document.getElementById('usuarios-table-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">Cargando usuarios...</td></tr>';
+
+        try {
+            const res = await this.store._fetch('getUsers');
+            if (!res.success) throw new Error(res.error);
+
+            tbody.innerHTML = '';
+            res.users.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${u.username}</strong></td>
+                    <td>${u.display_name}</td>
+                    <td><span class="badge ${u.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">${u.role.toUpperCase()}</span></td>
+                    <td>
+                        <button class="btn btn-icon" onclick="app._openUserForm(${JSON.stringify(u).replace(/"/g, '&quot;')})" title="Editar">✏️</button>
+                        <button class="btn btn-icon" onclick="app._handleDeleteUser(${u.id})" title="Eliminar" style="color:var(--danger)">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error: ${err.message}</td></tr>`;
+        }
+    }
+
+    _openUserForm(user = null) {
+        const modal = document.getElementById('modal-usuario-form');
+        const title = document.getElementById('user-form-title');
+        const form = document.getElementById('form-manage-user');
+
+        form.reset();
+        document.getElementById('manage-user-id').value = user ? user.id : '';
+        document.getElementById('manage-user-username').value = user ? user.username : '';
+        document.getElementById('manage-user-display').value = user ? user.display_name : '';
+        document.getElementById('manage-user-email').value = user ? (user.email || '') : '';
+        document.getElementById('manage-user-phone').value = user ? (user.telefono || '') : '';
+        document.getElementById('manage-user-role').value = user ? user.role : 'usuario';
+        
+        // El username no debería cambiarse si es admin para evitar líos?
+        // document.getElementById('manage-user-username').disabled = !!user;
+
+        title.textContent = user ? `👤 Editar Usuario: ${user.username}` : '👤 Nuevo Usuario';
+        this._toggleModal('modal-usuario-form', true);
+    }
+
+    async _handleSaveUser() {
+        const id = document.getElementById('manage-user-id').value;
+        const username = document.getElementById('manage-user-username').value;
+        const display_name = document.getElementById('manage-user-display').value;
+        const email = document.getElementById('manage-user-email').value;
+        const telefono = document.getElementById('manage-user-phone').value;
+        const password = document.getElementById('manage-user-password').value;
+        const role = document.getElementById('manage-user-role').value;
+
+        try {
+            const res = await this.store._fetch('saveUser', {}, {
+                id, username, display_name, email, telefono, password, role
+            });
+            if (res.success) {
+                this._toast(id ? '✅ Usuario actualizado' : '✅ Usuario creado', 'success');
+                this._toggleModal('modal-usuario-form', false);
+                this._renderUserList();
+            }
+        } catch (err) {
+            this._toast(err.message || 'Error al guardar usuario', 'error');
+        }
+    }
+
+    async _handleDeleteUser(id) {
+        if (!confirm('¿Estás seguro de que deseas eliminar este usuario? No se puede deshacer.')) return;
+
+        try {
+            const res = await this.store._fetch(`deleteUser&id=${id}`);
+            if (res.success) {
+                this._toast('✅ Usuario eliminado', 'success');
+                this._renderUserList();
+            }
+        } catch (err) {
+            this._toast(err.message || 'Error al eliminar usuario', 'error');
         }
     }
 

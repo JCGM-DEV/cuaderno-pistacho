@@ -81,6 +81,15 @@ function checkAuth() {
     }
 }
 
+function checkAdmin() {
+    checkAuth();
+    if (($_SESSION['user']['role'] ?? '') !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Acceso denegado. Se requieren permisos de administrador.']);
+        exit;
+    }
+}
+
 // ---- Router ----
 $action = $_GET['action'] ?? '';
 
@@ -98,6 +107,7 @@ if ($action === 'login') {
     if ($user && password_verify($password, $user['password'])) {
         session_regenerate_id(true);
         $_SESSION['user'] = [
+            'id' => $user['id'],
             'username' => $user['username'],
             'displayName' => $user['display_name'],
             'role' => $user['role']
@@ -161,7 +171,96 @@ if ($action === 'changePassword') {
         echo json_encode(['error' => 'La contraseña actual es incorrecta']);
     }
     exit;
+    exit;
 }
+
+// ---- Gestión de Usuarios (Admin) ----
+if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser') {
+    checkAdmin();
+    $db = getDB();
+    
+    // 1. Garantizar Tabla
+    $db->exec("CREATE TABLE IF NOT EXISTS usuarios (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        display_name VARCHAR(100),
+        role ENUM('admin', 'usuario') DEFAULT 'usuario',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // 2. Garantizar Columnas (Compatibilidad con MySQL < 8.0.19)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM usuarios");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('email', $cols)) { $db->exec("ALTER TABLE usuarios ADD email VARCHAR(100) NULL AFTER display_name"); }
+        if (!in_array('telefono', $cols)) { $db->exec("ALTER TABLE usuarios ADD telefono VARCHAR(20) NULL AFTER email"); }
+    } catch (Exception $e) {}
+
+    if ($action === 'getUsers') {
+        $stmt = $db->query("SELECT id, username, display_name, role, email, telefono, created_at FROM usuarios ORDER BY id ASC");
+        echo json_encode(['success' => true, 'users' => $stmt->fetchAll()]);
+        exit;
+    }
+
+    if ($action === 'saveUser') {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $id = $input['id'] ?? null;
+        $username = trim($input['username'] ?? '');
+        $password = trim($input['password'] ?? '');
+        $role = $input['role'] ?? 'usuario';
+        $displayName = trim($input['display_name'] ?? '');
+        $email = trim($input['email'] ?? '');
+        $telefono = trim($input['telefono'] ?? '');
+
+        if (!$username || !$displayName) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Faltan campos obligatorios']);
+            exit;
+        }
+
+        if ($id) {
+            if ($password) {
+                $hashed = password_hash($password, PASSWORD_DEFAULT);
+                $stmt = $db->prepare("UPDATE usuarios SET username = ?, password = ?, display_name = ?, role = ?, email = ?, telefono = ? WHERE id = ?");
+                $stmt->execute([$username, $hashed, $displayName, $role, $email, $telefono, $id]);
+            } else {
+                $stmt = $db->prepare("UPDATE usuarios SET username = ?, display_name = ?, role = ?, email = ?, telefono = ? WHERE id = ?");
+                $stmt->execute([$username, $displayName, $role, $email, $telefono, $id]);
+            }
+        } else {
+            if (!$password) {
+                http_response_code(400);
+                echo json_encode(['error' => 'La contraseña es obligatoria para nuevos usuarios']);
+                exit;
+            }
+            $hashed = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $db->prepare("INSERT INTO usuarios (username, password, display_name, role, email, telefono) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$username, $hashed, $displayName, $role, $email, $telefono]);
+        }
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($action === 'deleteUser') {
+        $id = $_GET['id'] ?? null;
+        if (!$id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID de usuario no proporcionado']);
+            exit;
+        }
+        if ($id == ($_SESSION['user']['id'] ?? 0)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No puedes eliminar tu propio usuario']);
+            exit;
+        }
+        $stmt = $db->prepare("DELETE FROM usuarios WHERE id = ?");
+        $stmt->execute([$id]);
+        echo json_encode(['success' => true]);
+        exit;
+    }
+}
+
 if ($action === 'testSigpac') {
     $lat = $_GET['lat'] ?? '38.5299';
     $lng = $_GET['lng'] ?? '-3.5004';

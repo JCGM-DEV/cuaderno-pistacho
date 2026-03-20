@@ -1581,6 +1581,88 @@
         </div>
     </div>
 
+    <!-- MODAL LISTA DE USUARIOS (ADMIN) -->
+    <div id="modal-usuarios-lista" class="modal">
+        <div class="modal-content card" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3>👥 Gestión de Usuarios</h3>
+                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-usuarios-lista', false)">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+                    <button class="btn btn-primary" onclick="app._openUserForm()">+ Nuevo Usuario</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre</th>
+                                <th>Rol</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usuarios-table-body">
+                            <!-- JS will inject users here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FORMULARIO USUARIO (ADD/EDIT) -->
+    <div id="modal-usuario-form" class="modal">
+        <div class="modal-content card" style="max-width: 440px;">
+            <div class="modal-header">
+                <h3 id="user-form-title">👤 Usuario</h3>
+                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-usuario-form', false)">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-manage-user" style="text-align: left;">
+                    <input type="hidden" id="manage-user-id">
+                    
+                    <div class="input-group-modern" style="margin-bottom: 1rem;">
+                        <label>👤 Nombre de Usuario (Login)</label>
+                        <input type="text" id="manage-user-username" class="input-modern" required placeholder="ej: joao_p">
+                    </div>
+
+                    <div class="input-group-modern" style="margin-bottom: 1rem;">
+                        <label>🏷️ Nombre a Mostrar</label>
+                        <input type="text" id="manage-user-display" class="input-modern" required placeholder="ej: João Pereira">
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="input-group-modern">
+                            <label>📧 Email</label>
+                            <input type="email" id="manage-user-email" class="input-modern" placeholder="correo@ejemplo.com">
+                        </div>
+                        <div class="input-group-modern">
+                            <label>📞 Teléfono</label>
+                            <input type="tel" id="manage-user-phone" class="input-modern" placeholder="Solo números">
+                        </div>
+                    </div>
+
+                    <div class="input-group-modern" style="margin-bottom: 1rem;">
+                        <label>🔒 Contraseña</label>
+                        <input type="password" id="manage-user-password" class="input-modern" placeholder="Dejar vacío para no cambiar">
+                    </div>
+
+                    <div class="input-group-modern" style="margin-bottom: 1.5rem;">
+                        <label>🎗️ Rol del Usuario</label>
+                        <select id="manage-user-role" class="input-modern" required style="width: 100%;">
+                            <option value="usuario">Usuario Estándar</option>
+                            <option value="admin">Administrador (Control Total)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full" style="margin-top: 1rem;">
+                        Guardar Usuario
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
 </body>
