@@ -43,6 +43,7 @@ El sistema utiliza el esquema definido en `setup.sql`, compuesto por 10 tablas p
 | `planing_progreso` | Tracking del checklist anual de tareas de secano. |
 | `documentacion` | Repositorio de escrituras, contratos y documentos legales en PDF/Imagen. |
 | `maquinaria_reparaciones` | Registro detallado de costes de mantenimiento y averías. |
+| `usuarios` | Gestión de acceso seguro (User, Password Hash BCRYPT). |
 
 ---
 
@@ -61,6 +62,11 @@ define('DB_USER', getenv('DB_USER') ?: 'root');
 define('DB_PASS', getenv('DB_PASS') ?: '');
 ```
 
+### Paso 4: Actualización Automatizada (Recomendado)
+Para asegurar que tu base de datos tiene la última estructura (incluyendo la tabla de usuarios y campos financieros), sube y ejecuta `update_server.php` en tu navegador. 
+> [!IMPORTANT]
+> Borra `update_server.php` inmediatamente después de ejecutarlo por seguridad.
+
 ### Paso 3: Permisos de Archivos
 La API necesita crear y escribir en:
 - `/uploads/`: Para fotos de la galería.
@@ -77,6 +83,7 @@ La API se invoca mediante `api.php?action=[ACCION]`. Requiere autenticación de 
 - **`login`**: Recibe JSON `{username, password}`.
 - **`getAll`**: Devuelve todos los registros de una tabla (parámetro `collection`).
 - **`add`**: Inserta nuevos datos (detecta automáticamente cálculos de stock e integración de costes).
+- **`changePassword`**: Actualiza la contraseña del usuario actual validando la anterior (BCRYPT).
 - **`uploadPhoto` / `uploadDoc`**: Gestiona la subida de archivos binarios al sistema de archivos.
 - **`getSigpacInfo`**: Proxy que consulta las APIs oficiales del SIGPAC para obtener referencias catastrales y superficies a partir de coordenadas.
 - **`export`**: Genera un volcado JSON completo para backups.
@@ -88,6 +95,14 @@ La aplicación implementa una clase `DataStore` en `app.js` que gestiona las ope
 - Si el navegador está **Offline**, las operaciones `add`, `update` o `borrar` se guardan en una cola persistente (`localStorage`).
 - Al recuperar la conexión (`online` event), el sistema procesa automáticamente la cola subiendo los cambios pendientes al servidor.
 - El `sw.js` asegura que el HTML/CSS/JS se cargue instantáneamente incluso sin internet.
+
+---
+
+## 8. Seguridad y Cifrado
+A partir de la v2.1, Garuto implementa medidas de seguridad comerciales:
+- **Hashing BCRYPT**: Las contraseñas nunca se almacenan en texto plano. Se utiliza la función `password_hash()` de PHP con el algoritmo `PASSWORD_DEFAULT`.
+- **Sesiones Seguras**: Cookies configuradas con `HttpOnly` y `SameSite: Lax` para mitigar ataques XSS y CSRF.
+- **Validación Bind**: Todas las consultas SQL utilizan sentencias preparadas (PDO) para evitar SQL Injection.
 
 ---
 

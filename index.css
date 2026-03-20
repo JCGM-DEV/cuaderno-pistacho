@@ -136,10 +136,6 @@ h4 {
 }
 
 /* ---- Scrollbar ---- */
-::-webkit-scrollbar {
-    width: 6px;
-}
-
 ::-webkit-scrollbar-track {
     background: var(--bg-deep);
 }
@@ -149,17 +145,76 @@ h4 {
     border-radius: 3px;
 }
 
+/* ---- Loading Skeleton ---- */
+.skeleton {
+    background: linear-gradient(90deg, #1b281d 25%, #233325 50%, #1b281d 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite linear;
+    color: transparent !important;
+    border-radius: 4px;
+    display: inline-block;
+    min-width: 60px;
+    height: 1.2em;
+    vertical-align: middle;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
 /* ==================================================
-   LOGIN SCREEN
+   TOAST NOTIFICATIONS
    ================================================== */
-.login-screen {
-    min-height: 100vh;
+.toast-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    pointer-events: none;
+}
+
+.toast {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-primary);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: var(--bg-deepest);
-    position: relative;
-    overflow: hidden;
+    gap: 0.75rem;
+    min-width: 300px;
+    max-width: 450px;
+    animation: toast-slide-in 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+    pointer-events: auto;
+    border-left: 4px solid var(--pistachio-500);
+}
+
+.toast.success { border-left-color: var(--success); }
+.toast.error { border-left-color: var(--danger); }
+.toast.info { border-left-color: var(--info); }
+.toast.warning { border-left-color: var(--warning); }
+
+.toast-icon { font-size: 1.25rem; }
+.toast-message { font-size: 0.95rem; font-weight: 500; }
+
+.toast.fade-out {
+    animation: toast-fade-out 0.4s ease forwards;
+}
+
+@keyframes toast-slide-in {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-fade-out {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
 }
 
 /* Mesh Gradient Background */
@@ -186,6 +241,16 @@ h4 {
 @keyframes background-swirl {
     0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
     100% { transform: translate(-50%, -50%) rotate(5deg) scale(1.1); }
+}
+
+.login-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
 }
 
 .login-screen[hidden],
@@ -1208,6 +1273,13 @@ h4 {
     color: var(--text-primary);
 }
 
+.weather-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    flex: 1;
+}
+
 .inline-form {
     display: flex;
     flex-wrap: wrap;
@@ -2108,12 +2180,194 @@ body::after {
     opacity: 1;
 }
 
-.photo-card-overlay > div {
+/* ==================================================
+   FINANZAS & COSECHAS
+   ================================================== */
+
+.highlight-balance {
+    background: linear-gradient(135deg, rgba(163, 214, 94, 0.15), rgba(76, 175, 80, 0.05));
+    border: 1px solid rgba(163, 214, 94, 0.3);
+}
+
+.highlight-balance #stat-saldo {
+    color: var(--pistachio-400);
+    text-shadow: 0 0 15px rgba(163, 214, 94, 0.3);
+}
+
+.balance-display-modern {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    min-width: 0;
-    margin-right: 0.5rem;
+    align-items: flex-end;
+    margin-right: 1.5rem;
+}
+
+.balance-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.balance-amount {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.finanzas-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.fin-card {
+    padding: 1.5rem;
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: transform 0.3s ease;
+}
+
+.fin-card:hover {
+    transform: translateY(-5px);
+}
+
+.fin-card.income {
+    border-left: 4px solid var(--success);
+}
+
+.fin-card.expense {
+    border-left: 4px solid var(--danger);
+}
+
+.fin-card-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.fin-card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+}
+
+.income .fin-card-value { color: var(--success); }
+.expense .fin-card-value { color: var(--danger); }
+
+.monto-ingreso { color: var(--success); font-weight: 700; }
+.monto-gasto { color: var(--danger); font-weight: 700; }
+
+.table-header-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.select-mini {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.cosechas-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Premium Spaced-out Modern Table */
+.table-container {
+    padding: 1.5rem;
+    background: var(--glass-bg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--glass-border);
+    overflow-x: auto;
+}
+
+.table-inner-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.table-modern {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 0.8rem;
+}
+
+.table-modern th {
+    text-align: left;
+    padding: 0 1.2rem 0.8rem;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.table-modern td {
+    padding: 1.2rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.table-modern tr td:first-child {
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
+}
+
+.table-modern tr td:last-child {
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+}
+
+.table-modern tbody tr {
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.table-modern tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.table-modern tbody tr:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.list-item-badge {
+    background: var(--surface-light);
+    color: var(--pistachio-400);
+    padding: 0.3rem 0.8rem;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(163, 214, 94, 0.2);
+}
+
+@media (max-width: 768px) {
+    .balance-display-modern {
+        align-items: flex-start;
+        margin-right: 0;
+        margin-bottom: 1rem;
+    }
+    
+    .section-header-premium {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }
 
 .photo-card-desc {
@@ -2777,10 +3031,43 @@ body::after {
 }
 
 .modal-content {
-    max-width: 700px;
+    background: var(--glass-bg-elevated);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border-bright);
+    border-radius: var(--radius-lg);
     width: 90%;
+    max-width: 500px;
     max-height: 90vh;
     overflow-y: auto;
+    position: relative;
+    padding: 2.2rem;
+    box-shadow: var(--shadow-lg);
+}
+
+#form-change-password .input-group-modern {
+    margin-bottom: 1.25rem;
+}
+
+#form-change-password .input-modern {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 0.85rem 1.2rem;
+    border-radius: 12px;
+    width: 100%;
+}
+
+#form-change-password label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+#form-change-password .input-modern:focus {
+    border-color: var(--pistachio-400);
+    box-shadow: 0 0 15px rgba(163, 214, 94, 0.2);
+    background: rgba(255,255,255,0.08);
 }
 
 .modal-header {
@@ -2855,7 +3142,7 @@ body::after {
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
-    padding: 1.5rem 1.8rem;
+    padding: 1.25rem 1.5rem;
     cursor: pointer;
     transition: all var(--transition-base);
     display: flex;
@@ -2877,24 +3164,37 @@ body::after {
 }
 
 .stat-premium-value {
-    font-size: 2.2rem;
+    font-size: 1.8rem;
     font-weight: 800;
     color: var(--text-primary);
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    letter-spacing: -1px;
+    gap: 0.4rem; /* Reduced gap */
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+}
+
+.highlight-balance .stat-premium-value {
+    font-size: 1.65rem; /* Even smaller for global balance to avoid horizontal scroll/overlap */
 }
 
 .stat-premium-badge {
     height: fit-content;
-    padding: 0.3rem 0.6rem;
+    padding: 0.15rem 0.4rem;
     background: rgba(163, 214, 94, 0.15);
     color: var(--accent-primary);
-    border-radius: 6px;
-    font-size: 0.7rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0;
+    flex-shrink: 0;
+}
+
+.currency-symbol {
+    font-size: 0.8em;
+    opacity: 0.7;
+    margin-left: 0.2rem;
+    font-weight: 500;
 }
 
 .stat-premium-badge.gold {
@@ -3485,7 +3785,7 @@ body::before {
 }
 
 .stat-premium-value {
-    font-size: 2.4rem;
+    font-size: 1.8rem; /* Reduced from 2.4rem to prevent overflow */
     font-weight: 800;
     letter-spacing: -0.05em;
     background: linear-gradient(135deg, #fff, #e0e0e0);

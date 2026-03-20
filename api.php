@@ -14,19 +14,7 @@ define('DB_USER', getenv('DB_USER') ?: 'garuto');
 define('DB_PASS', getenv('DB_PASS') ?: '2G80j%6kq');
 define('DB_CHARSET', 'utf8mb4');
 
-// ---- Usuarios (cargables por entorno) ----
-$AUTH_USERS = [
-    ['username' => 'admin',   'password' => 'admin1234',  'displayName' => 'Administrador'],
-    ['username' => 'usuario', 'password' => 'campo2024',   'displayName' => 'Usuario Campo']
-];
-
-$authUsersEnv = getenv('AUTH_USERS_JSON');
-if ($authUsersEnv) {
-    $decodedUsers = json_decode($authUsersEnv, true);
-    if (is_array($decodedUsers) && count($decodedUsers) > 0) {
-        $AUTH_USERS = $decodedUsers;
-    }
-}
+// Usuarios cargados desde la base de datos (se usa password_verify)
 
 // ---- Configuración de Sesiones ----
 session_start([
@@ -76,7 +64,7 @@ function getDB() {
 
 // ---- Validar colección (tabla) permitida ----
 function validCollection($name) {
-    $allowed = ['parcelas', 'trabajos', 'registros', 'fotos', 'planing_progreso', 'inventario', 'maquinaria', 'documentacion', 'maquinaria_reparaciones'];
+    $allowed = ['parcelas', 'trabajos', 'registros', 'fotos', 'planing_progreso', 'inventario', 'maquinaria', 'documentacion', 'maquinaria_reparaciones', 'finanzas', 'cosechas_ventas'];
     if (!in_array($name, $allowed)) {
         http_response_code(400);
         echo json_encode(['error' => 'Colección no válida']);
@@ -102,16 +90,20 @@ if ($action === 'login') {
     $username = trim($input['username'] ?? '');
     $password = trim($input['password'] ?? '');
 
-    foreach ($AUTH_USERS as $user) {
-        if (strtolower($user['username']) === strtolower($username) && $user['password'] === $password) {
-            session_regenerate_id(true);
-            $_SESSION['user'] = [
-                'username' => $user['username'],
-                'displayName' => $user['displayName']
-            ];
-            echo json_encode(['success' => true, 'user' => $_SESSION['user']]);
-            exit;
-        }
+    $db = getDB();
+    $stmt = $db->prepare("SELECT * FROM usuarios WHERE LOWER(username) = LOWER(?)");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($password, $user['password'])) {
+        session_regenerate_id(true);
+        $_SESSION['user'] = [
+            'username' => $user['username'],
+            'displayName' => $user['display_name'],
+            'role' => $user['role']
+        ];
+        echo json_encode(['success' => true, 'user' => $_SESSION['user']]);
+        exit;
     }
     http_response_code(401);
     echo json_encode(['error' => 'Usuario o contraseña incorrectos']);
@@ -139,6 +131,35 @@ if ($action === 'logout') {
         );
     }
     echo json_encode(['success' => true]);
+    exit;
+}
+if ($action === 'changePassword') {
+    checkAuth();
+    $input = json_decode(file_get_contents('php://input'), true);
+    $oldPass = trim($input['oldPassword'] ?? '');
+    $newPass = trim($input['newPassword'] ?? '');
+    
+    if (strlen($newPass) < 4) {
+        http_response_code(400);
+        echo json_encode(['error' => 'La nueva contraseña debe tener al menos 4 caracteres']);
+        exit;
+    }
+
+    $db = getDB();
+    $username = $_SESSION['user']['username'];
+    $stmt = $db->prepare("SELECT password FROM usuarios WHERE username = ?");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
+
+    if ($user && password_verify($oldPass, $user['password'])) {
+        $hashed = password_hash($newPass, PASSWORD_DEFAULT);
+        $update = $db->prepare("UPDATE usuarios SET password = ? WHERE username = ?");
+        $update->execute([$hashed, $username]);
+        echo json_encode(['success' => true, 'message' => 'Contraseña actualizada correctamente']);
+    } else {
+        http_response_code(401);
+        echo json_encode(['error' => 'La contraseña actual es incorrecta']);
+    }
     exit;
 }
 if ($action === 'testSigpac') {
@@ -188,44 +209,61 @@ if ($action === 'getSigpacInfo') {
         exit;
     }
 
-    $url = "https://sigpac-hubcloud.es/servicioconsultassigpac/query/recinfobypoint/4326/$lng/$lat.json";
+    $lat = (float)$lat;
+    $lng = (float)$lng;
+
+    $commonOptions = [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_ENCODING => "",
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ];
+
+    $urls = [
+        "https://sigpac-hubcloud.es/servicioconsultassigpac/query/recinfobypoint/4326/$lng/$lat.json",
+        "https://sigpac-hubcloud.es/servicioconsultassigpac/query/recinfobypoint/4326/$lat/$lng.json",
+        "https://sigpac.mapa.gob.es/fega/serviciosrest/recintos/query/4326/$lng/$lat/"
+    ];
+
+    $errors = [];
     
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_ENCODING, ""); // Handle gzip
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Garuto/1.0');
+    foreach ($urls as $url) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, $commonOptions);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
 
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if ($httpCode !== 200) {
-        echo json_encode(['error' => "Error SIGPAC ($httpCode)"]);
-        exit;
+        if ($httpCode === 200 && $res) {
+            $data = json_decode($res, true);
+            if (isset($data['features'][0]['properties'])) {
+                $p = $data['features'][0]['properties'];
+                echo json_encode([
+                    'success' => true,
+                    'referencia' => sprintf("%d/%d/%d/%d/%d/%d/%d", $p['provincia'], $p['municipio'], $p['agregado'], $p['zona'], $p['poligono'], $p['parcela'], $p['recinto']),
+                    'superficie' => $p['superficie'],
+                    'recinto' => $p
+                ]);
+                exit;
+            } else if (isset($data[0])) {
+                $p = $data[0];
+                echo json_encode([
+                    'success' => true,
+                    'referencia' => sprintf("%d/%d/%d/%d/%d/%d/%d", $p['provincia'], $p['municipio'], $p['agregado'], $p['zona'], $p['poligono'], $p['parcela'], $p['recinto']),
+                    'superficie' => $p['superficie'],
+                    'recinto' => $p
+                ]);
+                exit;
+            }
+        }
+        $errors[] = "$url (Code: $httpCode" . ($curlError ? ", Err: $curlError" : "") . ")";
     }
 
-    $data = json_decode($response, true);
-    if (!$data || !isset($data[0])) {
-        echo json_encode(['error' => 'No se encontró recinto SIGPAC en este punto']);
-        exit;
-    }
-
-    $recinto = $data[0];
-    // Formatear referencia: Prov/Mun/Agr/Zon/Pol/Par/Rec
-    $ref = sprintf("%d/%d/%d/%d/%d/%d/%d", 
-        $recinto['provincia'], $recinto['municipio'], $recinto['agregado'], 
-        $recinto['zona'], $recinto['poligono'], $recinto['parcela'], $recinto['recinto']
-    );
-
-    echo json_encode([
-        'success' => true,
-        'referencia' => $ref,
-        'superficie' => $recinto['superficie'],
-        'recinto' => $recinto
-    ]);
+    echo json_encode(['error' => "Fallo total SIGPAC. Intentos: " . implode(" | ", $errors)]);
+    exit;
     exit;
 }
 
@@ -270,9 +308,10 @@ switch ($action) {
         $db = getDB();
 
         if ($collection === 'parcelas') {
-            $stmt = $db->prepare("INSERT INTO parcelas (nombre, superficie, referencia_sigpac, notas, lat, lng) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO parcelas (nombre, variedad, superficie, referencia_sigpac, notas, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['nombre'] ?? '',
+                $input['variedad'] ?? null,
                 $input['superficie'] ?? null,
                 $input['referencia_sigpac'] ?? null,
                 $input['notas'] ?? '',
@@ -298,35 +337,65 @@ switch ($action) {
                 $input['precio_unidad'] ?? 0.00
             ]);
         } elseif ($collection === 'maquinaria') {
-            $stmt = $db->prepare("INSERT INTO maquinaria (nombre, tipo, coste_hora) VALUES (?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO maquinaria (nombre, tipo, coste_hora, precio_compra, fecha_compra, estado) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['nombre'] ?? '',
                 $input['tipo'] ?? null,
-                $input['coste_hora'] ?? 0.00
+                $input['coste_hora'] ?? 0.00,
+                $input['precio_compra'] ?? 0.00,
+                $input['fecha_compra'] ?? date('Y-m-d'),
+                'activo'
             ]);
+            $maqId = $db->lastInsertId();
+
+            // Registrar movimiento financiero (Compra)
+            if (($input['precio_compra'] ?? 0) > 0) {
+                $stmtF = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion, referencia_id, referencia_tabla) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmtF->execute([
+                    $input['fecha_compra'] ?? date('Y-m-d'),
+                    'gasto',
+                    'maquinaria',
+                    $input['precio_compra'],
+                    "Compra Maquinaria: " . ($input['nombre'] ?? ''),
+                    $maqId,
+                    'maquinaria'
+                ]);
+            }
         } elseif ($collection === 'registros') {
-            // Lógica especial para registros: descontar stock y sumar costes
             $invId = isset($input['inventarioId']) ? intval($input['inventarioId']) : null;
             $maqId = isset($input['maquinariaId']) ? intval($input['maquinariaId']) : null;
             $cantUsada = isset($input['cantidad_usada']) ? floatval($input['cantidad_usada']) : null;
             $duracion = isset($input['duracion_horas']) ? floatval($input['duracion_horas']) : null;
             $costeManual = isset($input['coste']) ? floatval($input['coste']) : 0.00;
 
-            // Si hay inventario, descontar stock
             if ($invId && $cantUsada) {
-                $stmtInv = $db->prepare("UPDATE inventario SET stock = stock - ? WHERE id = ?");
-                $stmtInv->execute([$cantUsada, $invId]);
+                $db->prepare("UPDATE inventario SET stock = stock - ? WHERE id = ?")->execute([$cantUsada, $invId]);
             }
 
-            // Si hay maquinaria y duración, añadir coste de maquinaria al total si el coste manual es 0 o sumarlo?
-            // En Agroptima suele ser aditivo. Aquí si el usuario pone un coste, respetamos, si no, calculamos.
             if ($maqId && $duracion && $costeManual == 0) {
                 $stmtMaq = $db->prepare("SELECT coste_hora FROM maquinaria WHERE id = ?");
                 $stmtMaq->execute([$maqId]);
                 $maq = $stmtMaq->fetch();
-                if ($maq) {
-                    $costeManual = $maq['coste_hora'] * $duracion;
-                }
+                if ($maq) $costeManual = $maq['coste_hora'] * $duracion;
+            }
+
+            if ($costeManual != 0) {
+                $stmtT = $db->prepare("SELECT nombre FROM trabajos WHERE id = ?");
+                $stmtT->execute([intval($input['trabajoId'])]);
+                $trab = $stmtT->fetch();
+                
+                $tipoFin = $costeManual > 0 ? 'gasto' : 'ingreso';
+                $stmtF = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion, referencia_id, referencia_tabla) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmtF->execute([
+                    $input['fecha'] ?? date('Y-m-d'),
+                    $tipoFin,
+                    'trabajo',
+                    abs($costeManual),
+                    ($trab ? $trab['nombre'] : 'Trabajo') . " - " . ($input['notas'] ?? ''),
+                    0, 
+                    'registros'
+                ]);
+                $finId = $db->lastInsertId();
             }
 
             $stmt = $db->prepare("INSERT INTO registros (parcelaId, trabajoId, maquinariaId, fecha, notas, coste, num_personas, nombres_personas, duracion_horas, inventarioId, cantidad_usada, producto_fito, num_registro_fito, dosis, plaga, carnet_aplicador, nutrientes, cantidad_abono, agua_riego, kg_recolectados, lote_trazabilidad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -354,10 +423,12 @@ switch ($action) {
                 $input['lote_trazabilidad'] ?? null
             ]);
             
-            // Retornar el registro recién creado para que JS tenga el ID (para subir fotos)
-            $newId = $db->lastInsertId();
+            $newRegId = $db->lastInsertId();
+            if (isset($finId)) {
+                $db->prepare("UPDATE finanzas SET referencia_id = ? WHERE id = ?")->execute([$newRegId, $finId]);
+            }
             $stmt2 = $db->prepare("SELECT * FROM registros WHERE id = ?");
-            $stmt2->execute([$newId]);
+            $stmt2->execute([$newRegId]);
         } elseif ($collection === 'planing_progreso') {
             $stmt = $db->prepare("INSERT INTO planing_progreso (anio, mes_idx, tarea_idx, completado) VALUES (?, ?, ?, ?)");
             $stmt->execute([
@@ -375,13 +446,66 @@ switch ($action) {
                 $input['url'] ?? null
             ]);
         } elseif ($collection === 'maquinaria_reparaciones') {
-            $stmt = $db->prepare("INSERT INTO maquinaria_reparaciones (maquinariaId, fecha, descripcion, coste) VALUES (?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO maquinaria_reparaciones (maquinariaId, fecha, descripcion, coste, tipo) VALUES (?, ?, ?, ?, ?)");
             $stmt->execute([
                 intval($input['maquinariaId']),
                 $input['fecha'] ?? date('Y-m-d'),
                 $input['descripcion'] ?? '',
-                $input['coste'] ?? 0.00
+                $input['coste'] ?? 0.00,
+                $input['tipo'] ?? 'reparacion'
             ]);
+            $repId = $db->lastInsertId();
+
+            // Registrar en finanzas
+            if (($input['coste'] ?? 0) > 0) {
+                $stmtM = $db->prepare("SELECT nombre FROM maquinaria WHERE id = ?");
+                $stmtM->execute([intval($input['maquinariaId'])]);
+                $maqNombre = $stmtM->fetchColumn() ?: 'Maquinaria';
+                
+                $stmtF = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion, referencia_id, referencia_tabla) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmtF->execute([
+                    $input['fecha'] ?? date('Y-m-d'),
+                    'gasto',
+                    'maquinaria',
+                    $input['coste'],
+                    "Mant./Reparación ($maqNombre): " . ($input['descripcion'] ?? ''),
+                    $repId,
+                    'maquinaria_reparaciones'
+                ]);
+            }
+        } elseif ($collection === 'finanzas') {
+            $stmt = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion) VALUES (?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $input['fecha'] ?? date('Y-m-d'),
+                $input['tipo'] ?? 'gasto',
+                $input['categoria'] ?? 'manual',
+                $input['monto'] ?? 0.00,
+                $input['descripcion'] ?? ''
+            ]);
+        } elseif ($collection === 'cosechas_ventas') {
+            $stmt = $db->prepare("INSERT INTO cosechas_ventas (registroId, fecha, kg_vendidos, precio_kg, total_bruto, notas) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                intval($input['registroId']),
+                $input['fecha'] ?? date('Y-m-d'),
+                $input['kg_vendidos'] ?? 0.00,
+                $input['precio_kg'] ?? 0.00,
+                $input['total_bruto'] ?? 0.00,
+                $input['notas'] ?? ''
+            ]);
+            $ventaId = $db->lastInsertId();
+
+            if (($input['total_bruto'] ?? 0) > 0) {
+                $stmtF = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion, referencia_id, referencia_tabla) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmtF->execute([
+                    $input['fecha'] ?? date('Y-m-d'),
+                    'ingreso',
+                    'cosecha',
+                    $input['total_bruto'],
+                    "Venta Cosecha: " . ($input['kg_vendidos'] ?? 0) . " kg",
+                    $ventaId,
+                    'cosechas_ventas'
+                ]);
+            }
         }
 
         if (isset($stmt2)) { echo json_encode($stmt2->fetch()); } else { echo json_encode(["success" => true]); }
@@ -396,17 +520,17 @@ switch ($action) {
         $input = json_decode($rawInput, true);
         if (!$id || !$input) {
             http_response_code(400);
-            $errDetail = !$id ? "Falta ID" : "Problema con el JSON (vacío o mal formado). Longitud: " . strlen($rawInput);
-            echo json_encode(['error' => "ID o datos no válidos: $errDetail"]);
+            echo json_encode(['error' => "ID o datos no válidos"]);
             exit;
         }
         $db = getDB();
 
         try {
             if ($collection === 'parcelas') {
-                $stmt = $db->prepare("UPDATE parcelas SET nombre = ?, superficie = ?, referencia_sigpac = ?, notas = ?, lat = ?, lng = ?, mapa_datos = ? WHERE id = ?");
+                $stmt = $db->prepare("UPDATE parcelas SET nombre = ?, variedad = ?, superficie = ?, referencia_sigpac = ?, notas = ?, lat = ?, lng = ?, mapa_datos = ? WHERE id = ?");
                 $stmt->execute([
                     $input['nombre'] ?? '',
+                    $input['variedad'] ?? null,
                     $input['superficie'] ?? null,
                     $input['referencia_sigpac'] ?? null,
                     $input['notas'] ?? '',
@@ -434,13 +558,35 @@ switch ($action) {
                     $id
                 ]);
             } elseif ($collection === 'maquinaria') {
-                $stmt = $db->prepare("UPDATE maquinaria SET nombre = ?, tipo = ?, coste_hora = ? WHERE id = ?");
+                $stmt = $db->prepare("UPDATE maquinaria SET nombre = ?, tipo = ?, coste_hora = ?, precio_compra = ?, fecha_compra = ?, precio_venta = ?, fecha_venta = ?, estado = ? WHERE id = ?");
                 $stmt->execute([
                     $input['nombre'] ?? '',
                     $input['tipo'] ?? null,
                     $input['coste_hora'] ?? 0.00,
+                    $input['precio_compra'] ?? 0.00,
+                    $input['fecha_compra'] ?? null,
+                    $input['precio_venta'] ?? 0.00,
+                    $input['fecha_venta'] ?? null,
+                    $input['estado'] ?? 'activo',
                     $id
                 ]);
+
+                if (isset($input['precio_venta']) && floatval($input['precio_venta']) > 0 && ($input['estado'] ?? '') === 'vendido') {
+                    $stmtCheck = $db->prepare("SELECT id FROM finanzas WHERE referencia_id = ? AND referencia_tabla = 'maquinaria_venta'");
+                    $stmtCheck->execute([$id]);
+                    if (!$stmtCheck->fetch()) {
+                        $stmtF = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion, referencia_id, referencia_tabla) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $stmtF->execute([
+                            $input['fecha_venta'] ?? date('Y-m-d'),
+                            'ingreso',
+                            'maquinaria',
+                            $input['precio_venta'],
+                            "Venta Maquinaria: " . ($input['nombre'] ?? ''),
+                            $id,
+                            'maquinaria_venta'
+                        ]);
+                    }
+                }
             }
 
             echo json_encode(['success' => true]);
@@ -475,6 +621,22 @@ switch ($action) {
                 if ($doc && isset($doc['filename']) && $doc['filename'] && file_exists(UPLOAD_DIR . 'docs/' . $doc['filename'])) {
                     unlink(UPLOAD_DIR . 'docs/' . $doc['filename']);
                 }
+            }
+
+            // LIMPIEZA FINANCIERA AUTOMÁTICA (Integridad de Datos)
+            if ($collection === 'maquinaria_reparaciones') {
+                $db->prepare("DELETE FROM finanzas WHERE referencia_id = ? AND referencia_tabla = 'maquinaria_reparaciones'")->execute([$id]);
+            }
+            if ($collection === 'maquinaria') {
+                // Al borrar una máquina, borramos sus reparaciones y sus compras financieras
+                $stmtR = $db->prepare("SELECT id FROM maquinaria_reparaciones WHERE maquinariaId = ?");
+                $stmtR->execute([$id]);
+                $reps = $stmtR->fetchAll();
+                foreach($reps as $r) {
+                    $db->prepare("DELETE FROM finanzas WHERE referencia_id = ? AND referencia_tabla = 'maquinaria_reparaciones'")->execute([$r['id']]);
+                }
+                $db->prepare("DELETE FROM maquinaria_reparaciones WHERE maquinariaId = ?")->execute([$id]);
+                $db->prepare("DELETE FROM finanzas WHERE referencia_id = ? AND referencia_tabla = 'maquinaria'")->execute([$id]);
             }
 
             $stmt = $db->prepare("DELETE FROM `$collection` WHERE id = ?");

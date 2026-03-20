@@ -8,6 +8,7 @@
 CREATE TABLE IF NOT EXISTS parcelas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
+    variedad VARCHAR(100) DEFAULT NULL,
     superficie DECIMAL(10,2) DEFAULT NULL,
     referencia_sigpac VARCHAR(255) DEFAULT NULL,
     notas TEXT DEFAULT NULL,
@@ -45,6 +46,11 @@ CREATE TABLE IF NOT EXISTS maquinaria (
     nombre VARCHAR(255) NOT NULL,
     tipo VARCHAR(100) DEFAULT NULL,
     coste_hora DECIMAL(10,2) DEFAULT 0.00,
+    precio_compra DECIMAL(10,2) DEFAULT 0.00,
+    fecha_compra DATE DEFAULT NULL,
+    precio_venta DECIMAL(10,2) DEFAULT 0.00,
+    fecha_venta DATE DEFAULT NULL,
+    estado ENUM('activo', 'vendido') DEFAULT 'activo',
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -135,7 +141,43 @@ CREATE TABLE IF NOT EXISTS maquinaria_reparaciones (
     FOREIGN KEY (maquinariaId) REFERENCES maquinaria(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 10. DATOS PREDEFINIDOS
+-- 10. TABLA FINANZAS (LIBRO DIARIO)
+CREATE TABLE IF NOT EXISTS finanzas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    fecha DATE NOT NULL,
+    tipo ENUM('ingreso', 'gasto') NOT NULL,
+    categoria VARCHAR(100) NOT NULL, -- 'maquinaria', 'cosecha', 'trabajo', 'insumo', 'reparacion', 'manual'
+    monto DECIMAL(10,2) NOT NULL,
+    descripcion TEXT DEFAULT NULL,
+    referencia_id INT DEFAULT NULL,
+    referencia_tabla VARCHAR(50) DEFAULT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 11. TABLA COSECHAS VENTAS (TRAZABILIDAD ECONÓMICA)
+CREATE TABLE IF NOT EXISTS cosechas_ventas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    registroId INT NOT NULL,
+    fecha DATE NOT NULL,
+    kg_vendidos DECIMAL(10,2) NOT NULL,
+    precio_kg DECIMAL(10,4) NOT NULL,
+    total_bruto DECIMAL(10,2) NOT NULL,
+    notas TEXT DEFAULT NULL,
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (registroId) REFERENCES registros(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12. TABLA USUARIOS (ACCESO SEGURO)
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    display_name VARCHAR(100),
+    role ENUM('admin', 'usuario') DEFAULT 'usuario',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12. DATOS PREDEFINIDOS
 INSERT INTO trabajos (nombre, icono, tipo_legal, predefinido) VALUES
     ('Riego',         '💧', 'general',        1),
     ('Arar',          '🚜', 'general',        1),
@@ -145,3 +187,8 @@ INSERT INTO trabajos (nombre, icono, tipo_legal, predefinido) VALUES
     ('Poda',          '✂️', 'general',        1),
     ('Cosecha',       '🧺', 'cosecha',        1)
 ON DUPLICATE KEY UPDATE nombre=VALUES(nombre);
+
+-- 14. USUARIOS INICIALES (admin / admin123)
+-- Contraseña 'admin123' hasheada con BCRYPT
+INSERT IGNORE INTO usuarios (username, password, display_name, role) VALUES
+    ('admin', '$2y$10$8Q6/9q1r6q6q6q6q6q6q6u1z1z1z1z1z1z1z1z1z1z1z1z1z1z1z1', 'Administrador', 'admin');

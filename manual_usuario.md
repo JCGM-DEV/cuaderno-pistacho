@@ -13,7 +13,8 @@ Al entrar en Garuto, lo primero que verás es un resumen visual de todo lo que o
 - **KPIs en Tiempo Real**: Visualiza rápidamente el número de parcelas, el balance económico del año, los registros realizados este mes y las hectáreas totales.
 - **Gráfico de Gastos**: Un gráfico interactivo que muestra la evolución mensual de tus costes operativos.
 - **Gráfico de Labores**: Distribución porcentual de los tipos de trabajo realizados (Riegos, Podas, Fitos...).
-- **Servicio Meteorológico Local**: Datos exactos de **Viso del Marqués**, con previsión de lluvia, viento y temperatura. Además, Garuto te dará **consejos agronómicos** basados en el tiempo actual (ej: "No apliques herbicida hoy, hay riesgo de deriva por viento").
+- **Servicio Meteorológico Local**: Datos exactos de **Viso del Marqués**, con previsión de lluvia, viento y temperatura. Además, Garuto te dará **consejos agronómicos** basados en el tiempo actual.
+- **Avisos Inteligentes (Toast)**: La aplicación utiliza un sistema de avisos moderno y no intrusivo que te confirmará cada acción (guardado, errores, stock bajo) sin interrumpir tu navegación.
 
 ![Mockup Dashboard](file:///home/thebrave/.gemini/antigravity/brain/79a9b0f1-de96-4f32-9486-a9866b06b238/dashboard_mockup_pistacho_1773945047965.png)
 
@@ -47,7 +48,8 @@ Registrar tus trabajos es más fácil que nunca con el **Modo Rápido**.
 Mantén tus equipos a punto y controla sus costes.
 
 - **Costo Operativo**: Define cuánto te cuesta cada máquina por hora. Al registrar un trabajo con esa máquina, Garuto calculará automáticamente el coste de la labor.
-- **Reparaciones y Averías**: Registra cada paso por el taller, cambios de aceite o neumáticos. Estos gastos se sumarán automáticamente al balance económico global de la finca.
+- **Trazabilidad Financiera**: Al comprar o vender maquinaria, introduce el precio para que el balance global se actualice automáticamente.
+- **Reparaciones y Averías**: Registra si es un recambio (platanillos, aceites) o una reparación general. Estos gastos se sumarán automáticamente al balance económico.
 
 ---
 
@@ -90,6 +92,13 @@ Tus datos son tuyos y están seguros.
 - **Exportación SIEX**: Genera un archivo CSV compatible con Excel que contiene todos los registros necesarios para las inspecciones oficiales.
 - **Copia de Seguridad**: Descarga un archivo JSON con toda la información de tu cuenta en cualquier momento desde Ajustes.
 - **Modo Offline**: Trabajamos con "Tecnología de Sincronización Invisible". Si pierdes la cobertura en el campo, sigue registrando normalmente; Garuto subirá los datos solos en cuanto vuelvas a tener señal.
+
+---
+
+## 9. Seguridad de tu Cuenta
+Tu seguridad es nuestra prioridad. 
+- **Cambio de Contraseña**: Puedes actualizar tu contraseña en cualquier momento desde la sección **Configuración > Seguridad**. Deberás introducir tu contraseña actual por seguridad antes de establecer la nueva.
+- **Hashing de Seguridad**: Tus credenciales están protegidas por algoritmos de cifrado de grado bancario (BCRYPT).
 
 ---
 © 2026 </TheBrave> Cuaderno Pistacho — Gestionando el futuro del oro verde.

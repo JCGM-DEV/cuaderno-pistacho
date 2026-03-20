@@ -306,6 +306,14 @@ class GarutoApp {
         this.charts = { costs: null, types: null };
         this.map = null;
         this.mapLayers = null;
+        
+        // Data state initialization (prevent "undefined" errors)
+        this.finanzas = [];
+        this.maquinaria = [];
+        this.almacen = [];
+        this.registros_galeria = [];
+        this.cosechas_ventas = [];
+        this._appCoreInitialized = false;
 
         this._initAuth();
     }
@@ -314,6 +322,9 @@ class GarutoApp {
     _initAppCore() {
         if (this._appCoreInitialized) return;
         this._appCoreInitialized = true;
+        
+        // Load data in background
+        this._loadInitialData();
 
         this._initNavigation();
         this._initDashboardQuickActions();
@@ -325,12 +336,82 @@ class GarutoApp {
         this._initWorkTimer();
         this._initDocs();
         this._initMaquinariaReparaciones();
+        this._initFinanzas();
+        this._initCosechas();
         this._initPistachin();
         this._initUISounds();
 
         this._initMonthlyReminder();
         this._initConnectivity();
         this._initUnauthorizedHandler();
+        this._initPasswordManager();
+    }
+
+    _initPasswordManager() {
+        const form = document.getElementById('form-change-password');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this._handleChangePassword();
+            });
+        }
+        
+        // Add button to ajustes section dynamically if not there
+        const ajustesGrid = document.querySelector('#section-ajustes .dashboard-grid');
+        if (ajustesGrid) {
+            const card = document.createElement('div');
+            card.className = 'card premium-card animate-fade-in-up';
+            card.style.borderLeft = '4px solid var(--gold-500)';
+            card.innerHTML = `
+                <h3>🔐 Seguridad de la Cuenta</h3>
+                <p style="color:var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.2rem;">Mantén tu cuenta protegida cambiando tu contraseña periódicamente.</p>
+                <button class="btn btn-secondary btn-full" onclick="app._toggleModal('modal-password', true)">
+                    Cambiar Mi Contraseña
+                </button>
+            `;
+            ajustesGrid.appendChild(card);
+        }
+    }
+
+    async _handleChangePassword() {
+        const oldPass = document.getElementById('pass-old').value;
+        const newPass = document.getElementById('pass-new').value;
+        const confirmPass = document.getElementById('pass-confirm').value;
+
+        if (newPass !== confirmPass) {
+            this._toast('Las contraseñas no coinciden', 'error');
+            return;
+        }
+
+        try {
+            const res = await this.store._fetch('changePassword', {}, { oldPassword: oldPass, newPassword: newPass });
+            if (res.success) {
+                this._toast('✅ Contraseña actualizada correctamente', 'success');
+                this._toggleModal('modal-password', false);
+                document.getElementById('form-change-password').reset();
+            }
+        } catch (err) {
+            this._toast(err.message || 'Error al cambiar contraseña', 'error');
+        }
+    }
+
+    async _loadInitialData() {
+        try {
+            const [fin, maq, alm, p, r] = await Promise.all([
+                this.store.getAll('finanzas'),
+                this.store.getAll('maquinaria'),
+                this.store.getAll('almacen'),
+                this.store.getAll('parcelas'),
+                this.store.getAll('registros')
+            ]);
+            this.finanzas = fin || [];
+            this.maquinaria = maq || [];
+            this.almacen = alm || [];
+            // Refresh dashboard once data is in
+            if (this.currentSection === 'dashboard') this._renderDashboard();
+        } catch (err) {
+            console.error('Error loading initial data:', err);
+        }
     }
 
     _initUnauthorizedHandler() {
@@ -397,12 +478,14 @@ class GarutoApp {
         const logoutBtnMobile = document.getElementById('btn-logout-mobile');
         const logoutBtnDashboard = document.getElementById('btn-logout-dashboard');
 
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this._handleLogin();
-        });
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this._handleLogin();
+            });
+        }
 
-        logoutBtn.addEventListener('click', () => this._handleLogout());
+        if (logoutBtn) logoutBtn.addEventListener('click', () => this._handleLogout());
         if (logoutBtnMobile) logoutBtnMobile.addEventListener('click', () => this._handleLogout());
         if (logoutBtnDashboard) logoutBtnDashboard.addEventListener('click', () => this._handleLogout());
 
@@ -497,7 +580,11 @@ class GarutoApp {
         if (headerNameEl) headerNameEl.textContent = this.currentUser.displayName;
         if (mobileNameEl) mobileNameEl.textContent = this.currentUser.displayName;
         if (document.getElementById('user-greeting-name')) document.getElementById('user-greeting-name').textContent = this.currentUser.displayName;
-        this._navigateTo(this.currentSection);
+        try {
+            this._navigateTo(this.currentSection);
+        } catch (err) {
+            console.error('Error in initial navigation:', err);
+        }
         
         try {
             this._initMap(); // Initialize map once app is visible
@@ -614,6 +701,8 @@ class GarutoApp {
             case 'planing':
                 this._initPlaning();
                 break;
+            case 'finanzas': this._renderFinanzas(); break;
+            case 'cosechas': this._renderCosechas(); break;
             case 'ajustes':
                 // Settings no necesita cargar datos previos
                 break;
@@ -669,16 +758,41 @@ class GarutoApp {
         document.getElementById('sidebar-overlay').classList.remove('active');
     }
 
-    // ---- Toast ----
-    _toast(message, type = 'success') {
+    // ---- Toast (Premium Notifications) ----
+    _toast(message, type = 'success', duration = 3500) {
         const container = document.getElementById('toast-container');
+        if (!container) return;
+
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type}`;
-        toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span> ${message}`;
+        toast.className = `toast ${type}`;
+        
+        const icons = {
+            success: '✅',
+            error: '❌',
+            info: 'ℹ️',
+            warning: '⚠️'
+        };
+
+        toast.innerHTML = `
+            <span class="toast-icon">${icons[type] || '🔔'}</span>
+            <span class="toast-message">${message}</span>
+        `;
+
         container.appendChild(toast);
+
+        // Auto remove with fade out
         setTimeout(() => {
-            if (toast.parentNode) toast.remove();
-        }, 3000);
+            toast.classList.add('fade-out');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, duration);
+    }
+
+    _toggleModal(modalId, show) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            if (show) modal.classList.add('active');
+            else modal.classList.remove('active');
+        }
     }
 
     // ===============================
@@ -689,12 +803,18 @@ class GarutoApp {
             const parcelas = await this.store.getAll('parcelas');
             const trabajos = await this.store.getAll('trabajos');
             const registros = await this.store.getAll('registros');
+            const finanzas = await this.store.getAll('finanzas');
+            this.finanzas = finanzas; // Sync global state
 
             // Stats
             const elP = document.getElementById('stat-parcelas');
             const elR = document.getElementById('stat-registros');
-            if (elP) elP.textContent = parcelas.length;
-            if (elR) elR.textContent = registros.length;
+            if (elP) { elP.textContent = parcelas.length; elP.classList.remove('skeleton'); }
+            if (elR) { elR.textContent = registros.length; elR.classList.remove('skeleton'); }
+
+            const totalHa = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
+            const elHa = document.getElementById('stat-ha');
+            if (elHa) { elHa.textContent = totalHa.toFixed(2); elHa.classList.remove('skeleton'); }
 
             // This month
             const now = new Date();
@@ -704,7 +824,8 @@ class GarutoApp {
                 const d = new Date(r.fecha);
                 return d.getMonth() === mesActual && d.getFullYear() === anioActual;
             });
-            document.getElementById('stat-mes').textContent = esteMes.length;
+            const elMes = document.getElementById('stat-mes');
+            if (elMes) { elMes.textContent = esteMes.length; elMes.classList.remove('skeleton'); }
 
             // Recent Records
             const recentEl = document.getElementById('recent-records');
@@ -729,33 +850,43 @@ class GarutoApp {
                 }).join('');
             }
 
-            // Economic Balance (Current Year)
+            // Global Balance (From Finanzas table)
+            const globalBalance = (finanzas || []).reduce((sum, f) => {
+                const val = parseFloat(f.monto) || 0;
+                return f.tipo === 'ingreso' ? sum + val : sum - val;
+            }, 0);
+
+            const saldoEl = document.getElementById('stat-saldo');
+            if (saldoEl) {
+                saldoEl.innerHTML = `${globalBalance.toFixed(2)} <span class="currency-symbol">€</span>`;
+                saldoEl.style.color = globalBalance >= 0 ? '#a3d65e' : '#ef5350';
+                saldoEl.classList.remove('skeleton');
+            }
+
+            // Economic Balance (Current Year - for KPIs)
             const currentYear = new Date().getFullYear();
             const yearRecords = registros.filter(r => new Date(r.fecha).getFullYear() === currentYear);
             
-            // Sumar también gastos de reparación de maquinaria
-            let repairCosts = 0;
-            try {
-                const allRepairs = await this.store.getAll('maquinaria_reparaciones');
-                repairCosts = allRepairs
-                    .filter(r => new Date(r.fecha).getFullYear() === currentYear)
-                    .reduce((sum, r) => sum + (parseFloat(r.coste) || 0), 0);
-            } catch (e) {
-                console.warn("No se pudieron cargar reparaciones para el balance:", e);
-            }
-
-            const totalBalance = yearRecords.reduce((sum, r) => sum + (parseFloat(r.coste) || 0), 0) + repairCosts;
+            // Sumar también gastos/ingresos de finanzas del año actual
+            const yearFinanzas = (finanzas || []).filter(f => new Date(f.fecha).getFullYear() === currentYear);
+            const totalBalance = yearFinanzas.reduce((sum, f) => {
+                const val = parseFloat(f.monto) || 0;
+                return f.tipo === 'ingreso' ? sum - val : sum + val; // Balance format for KPIs (expense positive)
+            }, 0);
             
             const moneyEl = document.getElementById('stat-money');
             if (totalBalance > 0) {
-                moneyEl.textContent = `-${totalBalance.toFixed(2)} €`;
-                moneyEl.style.color = '#ef5350'; // Red for expenses
+                moneyEl.innerHTML = `-${totalBalance.toFixed(2)} <span class="currency-symbol">€</span>`;
+                moneyEl.style.color = '#ef5350'; 
             } else if (totalBalance < 0) {
-                moneyEl.textContent = `+${Math.abs(totalBalance).toFixed(2)} €`;
-                moneyEl.style.color = '#a3d65e'; // Green for income
+                moneyEl.innerHTML = `+${Math.abs(totalBalance).toFixed(2)} <span class="currency-symbol">€</span>`;
+                moneyEl.style.color = '#a3d65e';
             } else {
-                moneyEl.textContent = '0.00 €';
-                moneyEl.style.color = 'var(--text-accent)';
+                moneyEl.innerHTML = `0.00 <span class="currency-symbol">€</span>`;
+                if (moneyEl) moneyEl.style.color = 'var(--text-accent)';
+            }
+            if (moneyEl) {
+                 moneyEl.classList.remove('skeleton');
             }
 
             this._renderDashboardKPIs(parcelas, yearRecords, totalBalance);
@@ -909,49 +1040,57 @@ class GarutoApp {
         if (!weatherEl) return;
         
         try {
-            // Coordenadas de Viso del Marqués (Aprox: 38.52, -3.73)
+            // Coordenadas de Viso del Marqués
             const LAT = 38.52;
             const LON = -3.73;
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&hourly=precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FMadrid`;
+            // Enhanced API Query
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,wind_direction_10m,uv_index,visibility,weather_code&hourly=precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=Europe%2FMadrid`;
             
             const res = await fetch(url);
             if (!res.ok) throw new Error('Error al obtener el clima');
             
             const data = await res.json();
             const current = data.current;
+            const daily = data.daily;
             
-            // Actualizar UI
-            document.getElementById('weather-status').textContent = 'Actualizado ahora';
-            document.getElementById('weather-temp').textContent = Math.round(current.temperature_2m);
-            document.getElementById('weather-wind').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
-            document.getElementById('weather-humidity').textContent = `${current.relative_humidity_2m}%`;
+            // Actualizar UI - Valores principales
+            if (document.getElementById('weather-status')) document.getElementById('weather-status').textContent = 'Actualizado ahora';
+            if (document.getElementById('weather-temp')) document.getElementById('weather-temp').textContent = Math.round(current.temperature_2m);
+            if (document.getElementById('weather-wind')) {
+                const windDir = this._getWindDirection(current.wind_direction_10m);
+                document.getElementById('weather-wind').textContent = `${Math.round(current.wind_speed_10m)} km/h ${windDir}`;
+            }
+            if (document.getElementById('weather-humidity')) document.getElementById('weather-humidity').textContent = `${current.relative_humidity_2m}%`;
             
             // Probabilidad de lluvia (próxima hora)
             const rainProb = data.hourly.precipitation_probability[0];
-            document.getElementById('weather-rain').textContent = `${rainProb}%`;
+            if (document.getElementById('weather-rain')) document.getElementById('weather-rain').textContent = `${rainProb}%`;
+
+            // NUEVOS CAMPOS
+            if (document.getElementById('weather-uv')) document.getElementById('weather-uv').textContent = current.uv_index.toFixed(1);
+            if (document.getElementById('weather-visibility')) document.getElementById('weather-visibility').textContent = `${(current.visibility / 1000).toFixed(1)} km`;
             
-            // Elegir icono
-            const iconEl = document.getElementById('weather-icon');
-            const svgRain = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M16 14v6"></path><path d="M8 14v6"></path><path d="M12 16v6"></path></svg>`;
-            const svgSun = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
-            const svgCloudSun = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 2v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="M20 12h2"></path><path d="m19.07 4.93-1.41 1.41"></path><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"></path><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"></path></svg>`;
+            if (document.getElementById('weather-sun')) {
+                const sunrise = daily.sunrise[0].split('T')[1];
+                const sunset = daily.sunset[0].split('T')[1];
+                document.getElementById('weather-sun').textContent = `${sunrise} / ${sunset}`;
+            }
             
-            if (current.precipitation > 0) iconEl.innerHTML = svgRain;
-            else if (current.temperature_2m > 30) iconEl.innerHTML = svgSun;
-            else iconEl.innerHTML = svgCloudSun;
+            // Elegir icono principal
+            const elIcon = document.getElementById('weather-icon');
+            if (elIcon) elIcon.innerHTML = this._getWeatherIcon(current.weather_code);
             
-            // Generar consejo agronómico basado en clima
+            // Generar consejo agronómico
             this._generateWeatherAdvice(current, rainProb);
             
-            // Generar previsión a 7 días
-            const daily = data.daily;
+            // Previsión a 7 días
             const weekContainer = document.getElementById('weather-week-forecast');
             if (weekContainer && daily) {
                 let weekHTML = '';
                 const daysName = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
                 
                 for(let i=0; i<7; i++) {
-                    const dateArr = daily.time[i].split('-'); // YYYY-MM-DD
+                    const dateArr = daily.time[i].split('-');
                     const dateObj = new Date(dateArr[0], dateArr[1]-1, dateArr[2]);
                     const dayName = i === 0 ? 'Hoy' : daysName[dateObj.getDay()];
                     const icon = this._getWeatherIcon(daily.weather_code[i]);
@@ -971,11 +1110,15 @@ class GarutoApp {
                 }
                 weekContainer.innerHTML = weekHTML;
             }
-            
         } catch (err) {
             console.error('Error meteo:', err);
-            document.getElementById('weather-status').textContent = 'Error de conexión';
+            if (document.getElementById('weather-status')) document.getElementById('weather-status').textContent = 'Error de conexión';
         }
+    }
+
+    _getWindDirection(degree) {
+        const sectors = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+        return sectors[Math.round(degree / 45) % 8];
     }
 
     _generateWeatherAdvice(current, rainProb) {
@@ -991,6 +1134,12 @@ class GarutoApp {
             type = 'info';
         } else if (current.relative_humidity_2m > 85 && current.temperature_2m > 15) {
             advice = '🍄 Humedad alta y calor. Alto riesgo de presión fúngica (Botryosphaeria/Alternaria). Vigile la plantación.';
+            type = 'warning';
+        } else if (current.uv_index > 7) {
+            advice = '☀️ Índice UV muy alto. Evite trabajos físicos intensos en las horas centrales y use protección solar.';
+            type = 'warning';
+        } else if (current.visibility < 1000) {
+            advice = '🌫️ Visibilidad muy reducida. Precaución en el transporte de maquinaria pesada por caminos y carreteras.';
             type = 'warning';
         } else if (current.temperature_2m > 35) {
             advice = '🔥 Calor extremo. El árbol puede sufrir estrés térmico severo y cerrar estomas. Riegos de apoyo nocturnos recomendados.';
@@ -1068,7 +1217,7 @@ class GarutoApp {
             if (latInput && lngInput) {
                 latInput.value = lat.toFixed(6);
                 lngInput.value = lng.toFixed(6);
-                this._toast('Coordenadas capturadas del mapa. Buscando datos SIGPAC...', 'info');
+                this._toast('🛰️ [v3] Capturado. Buscando en SIGPAC...', 'info');
                 
                 // Buscar datos SIGPAC automáticamente
                 this._fetchSigpacData(lat, lng);
@@ -1103,6 +1252,7 @@ class GarutoApp {
     }
 
     async _fetchSigpacData(lat, lng) {
+        console.log('[v3 DEBUG] _fetchSigpacData starting for:', lat, lng);
         try {
             const data = await this.store._fetch('getSigpacInfo', { lat, lng });
             if (data.success) {
@@ -1128,8 +1278,30 @@ class GarutoApp {
                 this._toast('⚠️ ' + (data.error || 'No se encontraron datos SIGPAC aquí'), 'warning');
             }
         } catch (err) {
-            console.error('Error fetching SIGPAC:', err);
-            this._toast('❌ Error al conectar con SIGPAC', 'error');
+            console.error('Error fetching SIGPAC from API:', err);
+            
+            // Intento final: Fetch directo desde el navegador (CORS permitiendo)
+            try {
+                this._toast('Reintentando conexión directa...', 'info');
+                const directUrl = `https://sigpac-hubcloud.es/servicioconsultassigpac/query/recinfobypoint/4326/${lng}/${lat}.json`;
+                const res = await fetch(directUrl);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data[0]) {
+                        const p = data[0];
+                        const refInput = document.getElementById('parcela-sigpac');
+                        const supInput = document.getElementById('parcela-superficie');
+                        if (refInput) refInput.value = `${p.provincia}/${p.municipio}/${p.agregado}/${p.zona}/${p.poligono}/${p.parcela}/${p.recinto}`;
+                        if (supInput) supInput.value = p.superficie;
+                        this._toast('✅ Datos recuperados vía espejo', 'success');
+                        return;
+                    }
+                }
+            } catch (directErr) {
+                console.error('Error in direct SIGPAC fallback:', directErr);
+            }
+
+            this._toast('❌ Error al conectar con SIGPAC: ' + err.message, 'error');
         }
     }
     // ===============================
@@ -1418,6 +1590,7 @@ class GarutoApp {
 
     async _addParcela() {
         const nombre = document.getElementById('parcela-nombre').value.trim();
+        const variedad = document.getElementById('parcela-variedad') ? document.getElementById('parcela-variedad').value : '';
         const superficie = document.getElementById('parcela-superficie').value;
         const sigpac = document.getElementById('parcela-sigpac').value.trim();
         const notas = document.getElementById('parcela-notas').value.trim();
@@ -1428,6 +1601,7 @@ class GarutoApp {
 
         const data = {
             nombre,
+            variedad: variedad || null,
             superficie: superficie ? parseFloat(superficie) : null,
             referencia_sigpac: sigpac || null,
             notas: notas || '',
@@ -1481,6 +1655,7 @@ class GarutoApp {
                             <div>
                                 <span class="list-item-name">${this._escapeHTML(p.nombre)}</span>
                                 <span class="list-item-meta">
+                                    ${p.variedad ? '🌰 ' + this._escapeHTML(p.variedad) + ' · ' : ''}
                                     ${p.superficie ? p.superficie + ' ha' : ''}
                                     ${p.referencia_sigpac ? ' · SIGPAC: ' + this._escapeHTML(p.referencia_sigpac) : ''}
                                     ${p.notas ? ' · ' + this._escapeHTML(p.notas) : ''}
@@ -1577,6 +1752,9 @@ class GarutoApp {
 
             this.editingParcelaId = id;
             document.getElementById('parcela-nombre').value = parcela.nombre || '';
+            if (document.getElementById('parcela-variedad')) {
+                document.getElementById('parcela-variedad').value = parcela.variedad || '';
+            }
             document.getElementById('parcela-superficie').value = parcela.superficie || '';
             document.getElementById('parcela-sigpac').value = parcela.referencia_sigpac || '';
             document.getElementById('parcela-notas').value = parcela.notas || '';
@@ -2043,7 +2221,7 @@ class GarutoApp {
             const ftVal = ft.value;
 
             fp.innerHTML = '<option value="">Todas las parcelas</option>' +
-                parcelas.map(p => `<option value="${p.id}">${this._escapeHTML(p.nombre)}</option>`).join('');
+                parcelas.map(p => `<option value="${p.id}">${this._escapeHTML(p.nombre)}${p.variedad ? ' (' + this._escapeHTML(p.variedad) + ')' : ''}</option>`).join('');
 
             ft.innerHTML = '<option value="">Todos los trabajos</option>' +
                 trabajos.map(t => `<option value="${t.id}">${t.icono} ${this._escapeHTML(t.nombre)}</option>`).join('');
@@ -2095,7 +2273,7 @@ class GarutoApp {
                 return `
                     <tr>
                         <td>${this._formatDate(r.fecha)}</td>
-                        <td>${parcela ? this._escapeHTML(parcela.nombre) : '<em>Eliminada</em>'}</td>
+                        <td>${parcela ? this._escapeHTML(parcela.nombre) : '<em>Eliminada</em>'}${parcela && parcela.variedad ? ' <small style="opacity:0.7">('+this._escapeHTML(parcela.variedad)+')</small>' : ''}</td>
                         <td>${trabajo ? trabajo.icono + ' ' + this._escapeHTML(trabajo.nombre) : '<em>Eliminado</em>'}</td>
                         <td>
                             ${r.num_personas ? r.num_personas : 1} 🧑‍🌾
@@ -2275,7 +2453,7 @@ class GarutoApp {
             const currentVal = select.value;
 
             select.innerHTML = '<option value="">Elige una parcela...</option>' +
-                parcelas.map(p => `<option value="${p.id}">${this._escapeHTML(p.nombre)}</option>`).join('');
+                parcelas.map(p => `<option value="${p.id}">${this._escapeHTML(p.nombre)}${p.variedad ? ' (' + this._escapeHTML(p.variedad) + ')' : ''}</option>`).join('');
 
             if (currentVal) {
                 select.value = currentVal;
@@ -2679,12 +2857,18 @@ class GarutoApp {
         const nombre = document.getElementById('maq-nombre').value.trim();
         const tipo = document.getElementById('maq-tipo').value.trim();
         const coste = document.getElementById('maq-coste').value;
+        const precio = document.getElementById('maq-precio').value;
+        const fecha = document.getElementById('maq-fecha').value || new Date().toISOString().split('T')[0];
 
         if (!nombre) return;
 
         try {
             await this.store.add('maquinaria', {
-                nombre, tipo, coste_hora: parseFloat(coste) || 0
+                nombre, 
+                tipo, 
+                coste_hora: parseFloat(coste) || 0,
+                precio_compra: parseFloat(precio) || 0,
+                fecha_compra: fecha
             });
             document.getElementById('form-maquinaria').reset();
             await this._renderMaquinaria();
@@ -2710,7 +2894,7 @@ class GarutoApp {
                         <span class="list-item-icon">🚜</span>
                         <div>
                             <span class="list-item-name">${this._escapeHTML(m.nombre)}</span>
-                            <span class="list-item-meta">${m.tipo ? this._escapeHTML(m.tipo) + ' · ' : ''}${m.coste_hora} €/h</span>
+                            <span class="list-item-meta">${m.tipo ? this._escapeHTML(m.tipo) + ' · ' : ''}${m.coste_hora} €/h${m.precio_compra > 0 ? ' · 💰 Val: ' + m.precio_compra + '€' : ''}</span>
                         </div>
                     </div>
                     <div class="list-item-actions">
@@ -2721,12 +2905,37 @@ class GarutoApp {
             `).join('');
 
             container.querySelectorAll('.btn-delete-maquinaria').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    if (confirm('¿Eliminar máquina?')) {
-                        await this.store.delete('maquinaria', btn.dataset.id);
-                        this._renderMaquinaria();
+                btn.onclick = async () => {
+                    const id = btn.dataset.id;
+                    const item = btn.closest('.list-item');
+                    const nombre = item.querySelector('.list-item-name').textContent;
+                    
+                    if (confirm(`¿Dar de baja la máquina "${nombre}"?`)) {
+                        const precioStr = prompt(`Si la has vendido o tiene un valor de recuperación, introduce el importe cobrado (€). Si no, pon 0:`, "0");
+                        if (precioStr !== null) {
+                            const precio = parseFloat(precioStr) || 0;
+                            try {
+                                // 1. Registrar ingreso en finanzas si hay precio
+                                if (precio > 0) {
+                                    await this.store.add('finanzas', {
+                                        fecha: new Date().toISOString().split('T')[0],
+                                        tipo: 'ingreso',
+                                        categoria: 'maquinaria',
+                                        monto: precio,
+                                        descripcion: `Baja/Venta de Maquinaria: ${nombre}`
+                                    });
+                                }
+                                // 2. Borrar la máquina (o marcar como inactiva si quisiéramos históricos, pero el usuario pidió borrar/dar de baja)
+                                await this.store.delete('maquinaria', id);
+                                this._renderMaquinaria();
+                                this._toast(`Máquina "${nombre}" dada de baja`);
+                                this._renderDashboard();
+                            } catch (err) {
+                                this._toast('Error al procesar la baja', 'error');
+                            }
+                        }
                     }
-                });
+                };
             });
 
             container.querySelectorAll('.btn-reparaciones-maquinaria').forEach(btn => {
@@ -2734,7 +2943,30 @@ class GarutoApp {
                     this._openReparacionesModal(btn.dataset.id, btn.dataset.nombre);
                 });
             });
+
+            // AGREGAR: Botón para comprar maquinaria si no está
+            const section = document.getElementById('section-maquinaria');
+            if (section && !section.querySelector('.maquinaria-financial-actions')) {
+                const header = section.querySelector('.section-header-premium');
+                const div = document.createElement('div');
+                div.className = 'section-actions maquinaria-financial-actions';
+                div.style.marginLeft = 'auto'; 
+                div.innerHTML = `
+                    <button class="btn btn-primary" onclick="app._showMaquinariaBuyModal()">🛒 Comprar Máquina</button>
+                `;
+                if (header) header.appendChild(div);
+            }
+
         } catch (err) { console.error(err); }
+    }
+
+    _showMaquinariaBuyModal() {
+        document.getElementById('form-movimiento').reset();
+        document.getElementById('fin-fecha').valueAsDate = new Date();
+        document.getElementById('fin-tipo').value = 'gasto';
+        document.getElementById('fin-categoria').value = 'maquinaria';
+        document.getElementById('fin-descripcion').value = 'Compra de maquinaria: ';
+        this._toggleModal('modal-movimiento', true);
     }
 
     _initMaquinariaReparaciones() {
@@ -2772,6 +3004,7 @@ class GarutoApp {
         const fecha = document.getElementById('reparacion-fecha').value;
         const coste = document.getElementById('reparacion-coste').value;
         const desc = document.getElementById('reparacion-desc').value.trim();
+        const tipo = document.getElementById('reparacion-tipo').value;
 
         if (!maqId || !fecha || !coste || !desc) return;
 
@@ -2780,7 +3013,8 @@ class GarutoApp {
                 maquinariaId: maqId,
                 fecha,
                 coste: parseFloat(coste) || 0,
-                descripcion: desc
+                descripcion: desc,
+                tipo: tipo
             });
             document.getElementById('form-reparacion').reset();
             document.getElementById('reparacion-maquina-id').value = maqId; // Restore ID
@@ -2804,17 +3038,17 @@ class GarutoApp {
             const repairs = allRep.filter(r => r.maquinariaId == maquinariaId).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
             if (repairs.length === 0) {
-                container.innerHTML = '<p class="empty-msg">No hay registros de reparación para esta máquina.</p>';
+                container.innerHTML = '<p class="empty-msg">No hay registros para esta máquina.</p>';
                 return;
             }
 
             container.innerHTML = repairs.map(r => `
                 <div class="list-item" data-id="${r.id}">
                     <div class="list-item-info">
-                        <span class="list-item-icon">🔧</span>
+                        <span class="list-item-icon">${r.tipo === 'recambio' ? '⚙️' : (r.tipo === 'mantenimiento' ? '🧼' : '🔧')}</span>
                         <div>
                             <span class="list-item-name">${this._escapeHTML(r.descripcion)}</span>
-                            <span class="list-item-meta">${this._formatDate(r.fecha)} · <strong>${r.coste} €</strong></span>
+                            <span class="list-item-meta">${this._formatDate(r.fecha)} · <b style="color:var(--danger)">${r.coste} €</b></span>
                         </div>
                     </div>
                     <div class="list-item-actions">
@@ -2957,6 +3191,314 @@ class GarutoApp {
                 console.warn("Error enviando notificación SW:", err);
             }
         }
+    }
+
+    // ===============================
+    // FINANZAS
+    // ===============================
+    _initFinanzas() {
+        const btn = document.getElementById('btn-nuevo-movimiento');
+        if (btn) btn.onclick = () => {
+             document.getElementById('form-movimiento').reset();
+             document.getElementById('fin-fecha').valueAsDate = new Date();
+             this._toggleModal('modal-movimiento', true);
+        };
+        const form = document.getElementById('form-movimiento');
+        if (form) form.onsubmit = (e) => this._handleSaveMovimiento(e);
+        const filter = document.getElementById('filter-finanzas-tipo');
+        if (filter) filter.onchange = () => this._renderFinanzas();
+    }
+
+    async _renderFinanzas() {
+        try {
+            this.finanzas = await this.store.getAll('finanzas');
+            const filter = document.getElementById('filter-finanzas-tipo').value;
+            const list = document.getElementById('lista-finanzas');
+            
+            let filtered = [...this.finanzas].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+            if (filter !== 'todos') {
+                filtered = filtered.filter(f => f.tipo === filter);
+            }
+
+            const totalIngresos = this.finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + parseFloat(f.monto), 0);
+            const totalGastos = this.finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + parseFloat(f.monto), 0);
+            const balance = totalIngresos - totalGastos;
+
+            const elI = document.getElementById('finanzas-total-ingresos');
+            const elG = document.getElementById('finanzas-total-gastos');
+            const elB = document.getElementById('finanzas-total-balance');
+
+            if (elI) elI.textContent = `${totalIngresos.toFixed(2)} €`;
+            if (elG) elG.textContent = `${totalGastos.toFixed(2)} €`;
+            if (elB) {
+                elB.textContent = `${balance.toFixed(2)} €`;
+                elB.style.color = balance >= 0 ? '#a3d65e' : '#ef5350';
+            }
+
+            if (!list) return;
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<tr><td colspan="5" class="empty-msg">No hay movimientos registrados.</td></tr>';
+                return;
+            }
+
+            list.innerHTML = filtered.map(f => `
+                <tr>
+                    <td>${this._formatDate(f.fecha)}</td>
+                    <td><span class="list-item-badge">${f.categoria}</span></td>
+                    <td>${f.descripcion || '-'}</td>
+                    <td class="text-right ${f.tipo === 'ingreso' ? 'monto-ingreso' : 'monto-gasto'}">
+                        ${f.tipo === 'ingreso' ? '+' : '-'}${parseFloat(f.monto).toFixed(2)} €
+                    </td>
+                    <td class="text-center">
+                        <button class="btn-icon-danger" onclick="app._deleteFinanza(${f.id})" title="Borrar">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch (e) { console.error(e); }
+    }
+
+    async _handleSaveMovimiento(e) {
+        e.preventDefault();
+        const data = {
+            fecha: document.getElementById('fin-fecha').value,
+            tipo: document.getElementById('fin-tipo').value,
+            categoria: document.getElementById('fin-categoria').value,
+            monto: parseFloat(document.getElementById('fin-monto').value),
+            descripcion: document.getElementById('fin-descripcion').value
+        };
+        try {
+            await this.store.add('finanzas', data);
+            this._toggleModal('modal-movimiento', false);
+            this._toast('Movimiento guardado', 'success');
+            this._renderFinanzas();
+            this._renderDashboard();
+        } catch (err) { this._toast(err.message, 'error'); }
+    }
+
+    async _deleteFinanza(id) {
+        if (!confirm('¿Seguro que quieres borrar este movimiento?')) return;
+        try {
+            await this.store.delete('finanzas', id);
+            this._toast('Movimiento borrado', 'success');
+            this._renderFinanzas();
+            this._renderDashboard();
+        } catch (err) { this._toast(err.message, 'error'); }
+    }
+
+    // ===============================
+    // COSECHAS
+    // ===============================
+    _initCosechas() {
+        const btnVenta = document.getElementById('btn-nueva-venta');
+        if (btnVenta) btnVenta.onclick = () => this._showVentaModal();
+        const formVenta = document.getElementById('form-venta');
+        if (formVenta) formVenta.onsubmit = (e) => this._handleSaveVenta(e);
+
+        const btnCosecha = document.getElementById('btn-nueva-cosecha');
+        if (btnCosecha) btnCosecha.onclick = () => this._showNuevaCosechaModal();
+        const formCosecha = document.getElementById('form-nueva-cosecha');
+        if (formCosecha) formCosecha.onsubmit = (e) => this._handleSaveNuevaCosecha(e);
+        
+        const kg = document.getElementById('venta-kg');
+        const pr = document.getElementById('venta-precio');
+        const tot = document.getElementById('venta-total');
+        if (kg && pr && tot) {
+            const calc = () => { tot.value = (parseFloat(kg.value || 0) * parseFloat(pr.value || 0)).toFixed(2); };
+            kg.oninput = calc; pr.oninput = calc;
+        }
+    }
+
+    async _showVentaModal() {
+        try {
+            const select = document.getElementById('venta-registroId');
+            const registros = await this.store.getAll('registros');
+            const trabajos = await this.store.getAll('trabajos');
+            const cosechas = registros.filter(r => {
+                const t = trabajos.find(tr => tr.id == r.trabajoId);
+                return t && t.tipo_legal === 'cosecha';
+            });
+            
+            if (cosechas.length === 0) {
+                select.innerHTML = '<option value="">-- No hay cosechas registradas --</option>';
+            } else {
+                select.innerHTML = cosechas.map(r => `
+                    <option value="${r.id}">${this._formatDate(r.fecha)} - ${r.notas || 'Sin notas'} (${r.kg_recolectados || 0}kg recolectados)</option>
+                `).join('');
+            }
+
+            
+            document.getElementById('form-venta').reset();
+            document.getElementById('venta-fecha').valueAsDate = new Date();
+            this._toggleModal('modal-venta', true);
+        } catch (err) { console.error(err); }
+    }
+
+    async _showNuevaCosechaModal() {
+        try {
+            const select = document.getElementById('cosecha-parcelaId');
+            const parcelas = await this.store.getAll('parcelas');
+            
+            if (parcelas.length === 0) {
+                this._toast('Necesitas crear al menos una parcela primero.', 'warning');
+                return;
+            }
+
+            select.innerHTML = parcelas.map(p => `
+                <option value="${p.id}">${p.nombre} (${p.variedad || 'Sin variedad'})</option>
+            `).join('');
+            
+            document.getElementById('form-nueva-cosecha').reset();
+            document.getElementById('cosecha-fecha').valueAsDate = new Date();
+            this._toggleModal('modal-nueva-cosecha', true);
+        } catch (err) { console.error(err); }
+    }
+
+    async _handleSaveNuevaCosecha(e) {
+        e.preventDefault();
+        try {
+            const btn = e.target.querySelector('button[type="submit"]');
+            btn.disabled = true;
+
+            const trabajos = await this.store.getAll('trabajos');
+            let trabajoCosecha = trabajos.find(t => t.tipo_legal === 'cosecha' || (t.nombre && t.nombre.toLowerCase().includes('cosech')));
+            
+            if (!trabajoCosecha && trabajos.length > 0) {
+                // Fallback al primero si no existe (aunque acabo de crearlo en BD)
+                trabajoCosecha = trabajos[0];
+                console.warn("Utilizando trabajo fallback para cosecha:", trabajoCosecha.nombre);
+            }
+
+            if (!trabajoCosecha) {
+                throw new Error("No existe ningún tipo de trabajo en la base de datos. Por favor, crea uno primero.");
+            }
+
+            const data = {
+                id: Date.now().toString(),
+                parcelaId: document.getElementById('cosecha-parcelaId').value,
+                trabajoId: trabajoCosecha.id,
+                fecha: document.getElementById('cosecha-fecha').value,
+                horas: 0,
+                trabajadores: 0,
+                jornal_precio: 0,
+                kg_recolectados: parseFloat(document.getElementById('cosecha-kg').value),
+                notas: document.getElementById('cosecha-notas').value,
+                timestamp: Date.now(),
+                sync_status: 'pending'
+            };
+
+            await this.store.add('registros', data);
+            
+            this._toggleModal('modal-nueva-cosecha', false);
+            this._toast('Cosecha registrada con éxito 🎉');
+            this._renderCosechas(); 
+            btn.disabled = false;
+        } catch (err) {
+            this._toast('Error al guardar la cosecha: ' + err.message, 'error');
+            e.target.querySelector('button[type="submit"]').disabled = false;
+        }
+    }
+
+    async _renderCosechas() {
+        try {
+            this.cosechas_ventas = await this.store.getAll('cosechas_ventas');
+            const listVentas = document.getElementById('lista-cosechas-ventas');
+            const listCampo = document.getElementById('lista-cosechas-campo');
+            const summary = document.getElementById('cosechas-summary-grid');
+            const registros = await this.store.getAll('registros');
+            const parcelas = await this.store.getAll('parcelas');
+            const trabajos = await this.store.getAll('trabajos');
+
+            // 1. Renderizar Cosecha en Campo (desde la tabla registros)
+            if (listCampo) {
+                const cosechaWorkIds = trabajos.filter(t => t.tipo_legal === 'cosecha' || (t.nombre && t.nombre.toLowerCase().includes('cosech'))).map(t => t.id);
+                const recordsCosecha = registros.filter(r => cosechaWorkIds.includes(parseInt(r.trabajoId))).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+                if (recordsCosecha.length === 0) {
+                    listCampo.innerHTML = '<tr><td colspan="5" class="empty-msg">No hay recolecciones registradas en campo.</td></tr>';
+                } else {
+                    listCampo.innerHTML = recordsCosecha.map(r => {
+                        const parc = parcelas.find(p => p.id == r.parcelaId);
+                        return `
+                            <tr>
+                                <td>${this._formatDate(r.fecha)}</td>
+                                <td>${parc ? parc.nombre : '<em>Eliminada</em>'}</td>
+                                <td class="text-center">${parc && parc.variedad ? '🌰 ' + parc.variedad : '—'}</td>
+                                <td class="font-bold">${r.kg_recolectados || 0} kg</td>
+                                <td class="text-center">
+                                    <button class="btn-icon-danger" onclick="app._deleteRegistroCosecha(${r.id})" title="Borrar registro">🗑️</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // 2. Renderizar Registro de Ventas
+            if (summary) summary.innerHTML = ''; 
+            if (!listVentas) return;
+
+            if (this.cosechas_ventas.length === 0) {
+                listVentas.innerHTML = '<tr><td colspan="6" class="empty-msg">No hay ventas registradas.</td></tr>';
+                return;
+            }
+
+            listVentas.innerHTML = this.cosechas_ventas.map(v => {
+                const reg = registros.find(r => r.id == v.registroId);
+                const parc = reg ? parcelas.find(p => p.id == reg.parcelaId) : null;
+                return `
+                    <tr>
+                        <td>${this._formatDate(v.fecha)}</td>
+                        <td>${parc ? parc.nombre : 'N/A'}${parc && parc.variedad ? ' <small style="opacity:0.7">('+parc.variedad+')</small>' : ''}</td>
+                        <td>${v.kg_vendidos} kg</td>
+                        <td>${parseFloat(v.precio_kg).toFixed(4)} €/kg</td>
+                        <td class="text-right monto-ingreso">${parseFloat(v.total_bruto).toFixed(2)} €</td>
+                        <td class="text-center">
+                            <button class="btn-icon-danger" onclick="app._deleteVenta(${v.id})" title="Borrar">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (e) { console.error(e); }
+    }
+
+    async _deleteRegistroCosecha(id) {
+        if (!confirm('¿Seguro que quieres borrar este registro de cosecha del campo?')) return;
+        try {
+            await this.store.delete('registros', id);
+            this._toast('Registro de cosecha eliminado', 'info');
+            this._renderCosechas();
+            this._renderDashboard();
+        } catch (err) { this._toast(err.message, 'error'); }
+    }
+
+    async _handleSaveVenta(e) {
+        e.preventDefault();
+        const data = {
+            registroId: document.getElementById('venta-registroId').value,
+            fecha: document.getElementById('venta-fecha').value,
+            kg_vendidos: parseFloat(document.getElementById('venta-kg').value),
+            precio_kg: parseFloat(document.getElementById('venta-precio').value),
+            total_bruto: parseFloat(document.getElementById('venta-total').value),
+            notas: document.getElementById('venta-notas').value
+        };
+        try {
+            await this.store.add('cosechas_ventas', data);
+            this._toggleModal('modal-venta', false);
+            this._toast('Venta registrada', 'success');
+            this._renderCosechas();
+            this._renderDashboard();
+        } catch (err) { this._toast(err.message, 'error'); }
+    }
+
+    async _deleteVenta(id) {
+        if (!confirm('¿Seguro que quieres borrar esta venta?')) return;
+        try {
+            await this.store.delete('cosechas_ventas', id);
+            this._toast('Venta borrada', 'success');
+            this._renderCosechas();
+            this._renderDashboard();
+        } catch (err) { this._toast(err.message, 'error'); }
     }
 
     // ===============================
@@ -3125,84 +3667,72 @@ class PistachinBot {
         const query = text.toLowerCase();
         let response = "";
 
-        // --- 1. CLIMA DINÁMICO ---
-        if (query.includes('clima') || query.includes('tiempo') || query.includes('meteo') || query.includes('llover') || query.includes('trabajar')) {
-            const adviceBox = document.querySelector('.advice-box');
-            if (adviceBox) {
-                response = `He consultado el servicio meteorológico: <b>${adviceBox.textContent}</b>.`;
-            } else {
-                response = "Parece que hoy hará un tiempo estable en Viso del Marqués. ¡Buen día para el campo!";
-            }
-        } 
-        // --- 2. RESUMEN GASTOS / ECONOMÍA ---
-        else if (query.includes('gasto') || query.includes('dinero') || query.includes('coste') || query.includes('económico')) {
-            const registros = await this.app.store.getAll('registros');
-            const esteAno = new Date().getFullYear();
-            const total = registros.reduce((sum, r) => {
-                const rYear = new Date(r.fecha).getFullYear();
-                return rYear === esteAno ? sum + (parseFloat(r.coste) || 0) : sum;
-            }, 0);
-            response = `En lo que va de año (${esteAno}), el coste total registrado en actividades es de <b>${total.toFixed(2)}€</b>.`;
+        const navigateTo = (section, msg) => {
+            this.app._navigateTo(section);
+            response = msg;
+        };
+
+        // --- 1. ACCIONES DINÁMICAS (NAVEGACIÓN + GUÍA + HOW-TO) ---
+        
+        // Agregar al Almacén / Inventario / Stock
+        if ((query.includes('agregar') || query.includes('añadir') || query.includes('nuevo')) && 
+            (query.includes('almacén') || query.includes('inventario') || query.includes('producto') || query.includes('insumo') || query.includes('stock'))) {
+            navigateTo('almacen', "¡Claro! Te he llevado al <b>Almacén</b>. Para agregar algo nuevo:<br>1. Pulsa el botón verde <b>'+ Nuevo Producto'</b> arriba a la derecha.<br>2. Elige el tipo (Abono, Fito, etc.) y ponle un nombre.<br>3. Indica el stock inicial y el precio. ¡Yo me encargaré de descontarlo cuando lo uses!");
         }
-        // --- 3. RESUMEN DE PARCELAS ---
+        // Registrar Labor / Trabajo
+        else if ((query.includes('registrar') || query.includes('anotar') || query.includes('apuntar')) && 
+                 (query.includes('labor') || query.includes('trabajo') || query.includes('poda') || query.includes('riego') || query.includes('fito'))) {
+            navigateTo('registrar', "Listo, estamos en <b>Registro de Labores</b>. Aquí puedes:<br>1. Seleccionar la parcela y el tipo de trabajo.<br>2. <b>Consejo:</b> Usa el cronómetro para registrar el tiempo exacto.<br>3. Si es un tratamiento, elige el producto del inventario para que yo actualice el stock automáticamente.");
+        }
+        // Nueva Parcela / Añadir Parcela
+        else if ((query.includes('nueva') || query.includes('añadir')) && query.includes('parcela')) {
+            navigateTo('parcelas', "Vamos a añadir esa parcela. Te he llevado a la sección correspondiente. Pulsa en <b>'+ Nueva Parcela'</b>. <br>Recuerda que puedo usar el <b>GPS</b> para detectar el SIGPAC y la superficie automáticamente por ti.");
+        }
+        // Maquinaria / Nueva Máquina
+        else if ((query.includes('nueva') || query.includes('añadir')) && query.includes('maquina')) {
+            navigateTo('maquinaria', "Entrando al garaje... Pulsa en <b>'+ Nueva Máquina'</b> para darla de alta. No olvides poner el <b>coste por hora</b> si quieres que calcule la rentabilidad de tus trabajos.");
+        }
+        // Finanzas / Gasto / Ingreso / Venta
+        else if ((query.includes('nuevo') || query.includes('añadir') || query.includes('registrar')) && 
+                 (query.includes('gasto') || query.includes('ingreso') || query.includes('movimiento') || query.includes('venta'))) {
+            navigateTo('finanzas', "Te he abierto el <b>Libro de Finanzas</b>. Pulsa en <b>'+ Nuevo Movimiento'</b> para anotar un gasto o ingreso manual. <br>Si es una venta de cosecha, también puedes ir a la sección de Cosechas.");
+        }
+
+        // --- 2. CONSULTAS DE DATOS ---
+
+        // Clima
+        else if (query.includes('clima') || query.includes('tiempo') || query.includes('meteo') || query.includes('llover') || query.includes('trabajar')) {
+            const adviceBox = document.querySelector('.advice-box');
+            response = adviceBox ? `He analizado el cielo de Viso del Marqués: <b>${adviceBox.textContent}</b>.` : "El tiempo parece estable para trabajar hoy en el campo. ¡A por ello!";
+        } 
+        // Economía
+        else if (query.includes('gasto') || query.includes('dinero') || query.includes('coste') || query.includes('económico') || query.includes('saldo') || query.includes('balance')) {
+            const finanzas = await this.app.store.getAll('finanzas');
+            const totalIngresos = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + parseFloat(f.monto), 0);
+            const totalGastos = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + parseFloat(f.monto), 0);
+            const balance = totalIngresos - totalGastos;
+            response = `Tu saldo global es <b>${balance.toFixed(2)}€</b>. Has ingresado <b>${totalIngresos.toFixed(2)}€</b> y gastado <b>${totalGastos.toFixed(2)}€</b>.`;
+        }
+        // Parcelas
         else if (query.includes('parcela') || query.includes('hectárea') || query.includes('superficie')) {
             const parcelas = await this.app.store.getAll('parcelas');
             const totalHas = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
-            response = `Gestionas un total de <b>${parcelas.length} parcelas</b> con una superficie de <b>${totalHas.toFixed(2)} Has</b>.`;
+            response = `Gestionas <b>${parcelas.length} parcelas</b> (${totalHas.toFixed(2)} Has).`;
             if (parcelas.length > 0) {
                 const mayor = [...parcelas].sort((a,b) => b.superficie - a.superficie)[0];
-                response += ` Tu parcela más grande es "${mayor.nombre}" (${mayor.superficie} Has).`;
+                response += ` La más grande es "${mayor.nombre}".`;
             }
         }
-        // --- 4. ULTIMO RIEGO O TAREA ESPECIFICA ---
-        else if (query.includes('cuándo') || query.includes('ultimo') || query.includes('último')) {
-            const registros = await this.app.store.getAll('registros');
-            const trabajos = await this.app.store.getAll('trabajos');
-            
-            let searchType = "";
-            if (query.includes('riego')) searchType = "riego";
-            else if (query.includes('poda')) searchType = "poda";
-            else if (query.includes('abono')) searchType = "abono";
-            else if (query.includes('fito')) searchType = "fitosanitario";
-
-            if (searchType) {
-                const tIds = trabajos.filter(t => t.nombre.toLowerCase().includes(searchType) || t.tipo_legal === searchType).map(t => t.id);
-                const match = registros.filter(r => tIds.includes(parseInt(r.trabajoId))).sort((a,b) => new Date(b.fecha) - new Date(a.fecha))[0];
-                
-                if (match) {
-                    const parcela = await this.app.store.getById('parcelas', match.parcelaId);
-                    response = `El último registro de ${searchType} fue el <b>${new Date(match.fecha).toLocaleDateString()}</b> en la parcela "${parcela.nombre}".`;
-                } else {
-                    response = `No he encontrado registros recientes de ${searchType} en el cuaderno de campo.`;
-                }
-            } else {
-                response = "¿Sobre qué labor quieres saber la última fecha? Pregúntame por ejemplo por el último riego.";
-            }
+        // Ayuda / Capacidades / Quién eres
+        else if (query.includes('qué puedes') || query.includes('quién eres') || query.includes('ayuda') || query.includes('control')) {
+            response = "Soy <b>Pistachín</b>, tu asistente de control total. Puedo llevarte a cualquier sección, explicarte cómo usar Garuto, analizar tu stock y avisarte si olvidas una tarea crítica. ¡Solo dime qué quieres hacer!";
         }
-        // --- 5. SIEX / EXPORTAR ---
-        else if (query.includes('siex') || query.includes('exportar') || query.includes('cuaderno')) {
-            response = "Para el SIEX, recuerda que los tratamientos fitosanitarios deben llevar el <b>nº de registro</b>. Puedes exportar todo desde Ajustes > Exportar CSV.";
-        }
-        // --- 6. CONSEJO / PLANING ---
-        else if (query.includes('hacer') || query.includes('consejo') || query.includes('plan')) {
-            const month = new Date().getMonth();
-            const plan = PLANING_DATA[month];
-            response = `Estamos en ${plan.mes}. Mi consejo: <i>"${plan.consejo}"</i>. Las tareas clave son: ${plan.tareas.map(t => t.t).join(', ')}.`;
-        }
-        // --- 7. NAVEGACIÓN ---
-        else if (query.includes('ir a') || query.includes('llévame') || query.includes('pantalla')) {
-            if (query.includes('parcela')) { this.app._navigateTo('parcelas'); response = "¡Vamos a las parcelas!"; }
-            else if (query.includes('almacén') || query.includes('inventario')) { this.app._navigateTo('almacen'); response = "Entrando al almacén..."; }
-            else if (query.includes('registrar')) { this.app._navigateTo('registrar'); response = "Listo para anotar una labor."; }
-            else if (query.includes('maquinaria')) { this.app._navigateTo('maquinaria'); response = "Abriendo el garaje de maquinaria."; }
-            else { response = "Dime dónde quieres ir: Parcelas, Inventario, Registro, Maquinaria..."; }
-        }
-        // --- SALUDO ---
-        else if (query.includes('hola') || query.includes('qué tal')) {
-            response = "¡Hola! Todo en orden por aquí. Listo para ayudarte con tu explotación de pistachos. <img src=\"nut.png\" style=\"width: 18px; vertical-align: middle;\">";
+        // Saludo
+        else if (query.includes('hola') || query.includes('qué tal') || query.includes('buenos')) {
+            response = "¡Hola! Todo bajo control por aquí. Soy Pistachín, listo para ayudarte con tu explotación de pistachos. ¿En qué puedo ayudarte hoy?";
         }
         else {
-            response = "Interesante pregunta... como asistente especializado en pistachos, puedo darte datos de tus parcelas, resumen de gastos o consejos según el mes. ¿Qué prefieres?";
+            response = "Entendido. Como asistente de Garuto, tengo acceso a todos tus registros. Puedo guiarte por la app, analizar tu inventario o calcular tus balances. ¿Quieres que te enseñe cómo añadir un producto o registrar una labor?";
         }
 
         this._addMessage(response, 'bot');
