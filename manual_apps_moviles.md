@@ -11,9 +11,30 @@ Esta es la forma más sencilla. No requiere que instales nada en tu ordenador.
 2.  Entra en **[PWABuilder.com](https://www.pwabuilder.com/)**.
 3.  Introduce la URL de tu aplicación (ej: `https://tu-dominio.com/cuaderno-pistacho`).
 4.  Haz clic en **"Package for Stores"**.
-5.  **Para Android**: Descarga el paquete para Google Play (se genera un `.aab` o `.apk`).
+5.  **Para Android**: Descarga el paquete para Google Play.
+    -   *Nota*: Si descargas un archivo que dice **"unsigned"**, tu móvil no te dejará instalarlo por seguridad.
 6.  **Para iOS**: Descarga el paquete para App Store (se genera un `.ipa`).
 
+---
+
+## ⚠️ Solución: "No me deja instalar el APK"
+Si al intentar instalar el archivo en tu Android recibes un error o el archivo se llama `Garuto-unsigned.apk`, es porque **falta la firma digital**. Android no permite instalar apps sin firma.
+
+### Cómo solucionarlo en PWABuilder:
+1.  En la pantalla de descarga de PWABuilder, busca el botón **"Options"** o **"Signing"** antes de generar el paquete.
+2.  PWABuilder puede generar una **"Key"** (clave) por ti. 
+3.  Crea la clave, descárgala (¡guárdala bien!) y vuelve a generar el paquete.
+4.  Esta vez el archivo se llamará algo como `Garuto-signed.apk` o simplemente `Garuto.apk` y funcionará perfectamente.
+
+### Cómo probarlo AHORA MISMO sin complicaciones:
+La forma más rápida de tener Garuto en el móvil sin pelearte con firmas digitales es la **Instalación PWA**:
+1.  Abre **Chrome** en tu móvil Android.
+2.  Ve a la dirección de tu web de Garuto.
+3.  Toca los tres puntos arriba a la derecha (menú).
+4.  Selecciona **"Instalar aplicación"** o **"Añadir a pantalla de inicio"**.
+5.  ¡Listo! Aparecerá el icono de Garuto en tu escritorio y funcionará exactamente igual que una app nativa, incluso sin internet.
+
+---
 > [!TIP]
 > PWABuilder utiliza el `manifest.json` y los iconos que ya hemos configurado en el proyecto.
 
