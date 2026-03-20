@@ -1,0 +1,26 @@
+{
+  "name": "cuaderno-pistacho",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app_v3.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cgarrido10646/cuaderno-pistacho.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cgarrido10646/cuaderno-pistacho/issues"
+  },
+  "homepage": "https://github.com/cgarrido10646/cuaderno-pistacho#readme",
+  "dependencies": {
+    "@capacitor/core": "^8.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.2.0"
+  }
+}
