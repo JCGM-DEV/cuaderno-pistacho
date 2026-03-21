@@ -4615,7 +4615,7 @@ class PistachinBot {
         }, 1500);
     }
 
-    _initEvents() {
+    _initEventListeners() {
         this.toggleBtn.addEventListener('click', () => this.toggle());
         this.closeBtn.addEventListener('click', () => this.close());
         this.form.addEventListener('submit', (e) => {
