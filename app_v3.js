@@ -812,7 +812,10 @@ class GarutoApp {
                 this._renderDashboard(); 
                 break;
             case 'mercado': this._renderMercado(); break;
-            case 'perfil': this._renderProfile(); break;
+            case 'perfil': 
+                this._renderProfile(); 
+                if (this.resizeSignaturePad) this.resizeSignaturePad();
+                break;
             case 'parcelas': this._renderParcelas(); break;
             case 'trabajos': this._renderTrabajos(); break;
             case 'registrar': this._populateRegistroSelects(); break;
@@ -3075,39 +3078,80 @@ class GarutoApp {
     _initSignaturePad() {
         const canvas = document.getElementById('signature-pad');
         if (!canvas) return;
+
+        const resizeCanvas = () => {
+            const rect = canvas.getBoundingClientRect();
+            // Solo redimensionar si es visible y tiene tamaño real
+            if (rect.width > 0 && rect.height > 0) {
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+                // Recargar firma si existía
+                const savedSig = localStorage.getItem('garuto_signature');
+                if (savedSig) {
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    img.src = savedSig;
+                }
+            }
+        };
+
+        // Redimensionar al inicio y al cambiar ventana
+        setTimeout(resizeCanvas, 500);
+        window.addEventListener('resize', resizeCanvas);
+
         const ctx = canvas.getContext('2d');
         let painting = false;
 
-        function startPosition(e) {
-            painting = true;
-            draw(e);
-        }
-        function finishedPosition() {
-            painting = false;
-            ctx.beginPath();
-        }
-        function draw(e) {
-            if (!painting) return;
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = '#1a1a1a';
-
+        function getPos(e) {
             const rect = canvas.getBoundingClientRect();
-            const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
-            const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
-
-            ctx.lineTo(x, y);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x, y);
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
         }
+
+        const startPosition = (e) => {
+            painting = true;
+            ctx.beginPath();
+            const pos = getPos(e);
+            ctx.moveTo(pos.x, pos.y);
+        };
+
+        const finishedPosition = () => {
+            painting = false;
+        };
+
+        const draw = (e) => {
+            if (!painting) return;
+            const pos = getPos(e);
+            ctx.lineWidth = 3;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#2d382d'; // Un verde muy oscuro casi negro
+
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        };
 
         canvas.addEventListener('mousedown', startPosition);
         canvas.addEventListener('mouseup', finishedPosition);
         canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPosition(e); });
+        canvas.addEventListener('mouseleave', finishedPosition);
+
+        canvas.addEventListener('touchstart', (e) => { 
+            if (e.target === canvas) e.preventDefault();
+            startPosition(e); 
+        });
         canvas.addEventListener('touchend', finishedPosition);
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+        canvas.addEventListener('touchmove', (e) => { 
+            if (e.target === canvas) e.preventDefault();
+            draw(e); 
+        });
+        
+        // Exponer para redimensionar cuando se muestre la sección
+        this.resizeSignaturePad = resizeCanvas;
     }
 
     async _saveProfile() {
