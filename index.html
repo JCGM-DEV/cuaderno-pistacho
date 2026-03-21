@@ -470,7 +470,8 @@
                             <label for="trabajo-tipo-legal">Tipo Legal (SIEX)</label>
                             <select id="trabajo-tipo-legal">
                                 <option value="general">General (Labores, Riego, Poda)</option>
-                                <option value="fitosanitario">Fitosanitario (Tratamientos)</option>
+                                <option value="herbicida">Herbicida (Tratamientos)</option>
+                                <option value="fitosanitario">Fitosanitario (Otros Tratamientos)</option>
                                 <option value="abono">Abonado / Fertilización</option>
                                 <option value="cosecha">Cosecha / Recolección</option>
                             </select>
@@ -569,9 +570,9 @@
                             </div>
                         </div>
 
-                        <!-- CAMPOS SIEX: FITOSANITARIO (Oculto por defecto) -->
-                        <div id="siex-fito-container" class="card quick-optional" style="background: rgba(239, 83, 80, 0.05); border-color: rgba(239, 83, 80, 0.2); display: none; margin-bottom: 1rem;">
-                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ef5350;">🧪 Datos Tratamiento Fitosanitario (SIEX)</h4>
+                        <!-- CAMPOS SIEX: HERBICIDA / FITO (Oculto por defecto) -->
+                        <div id="siex-fito-container" class="card card-fito-mode" style="display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ef5350;">🧪 Datos Tratamiento Herbicida / Fito (SIEX)</h4>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-fito-inventario">📦 Producto del Almacén</label>
@@ -580,8 +581,8 @@
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="reg-fito-producto">Producto Fitosanitario</label>
-                                    <input type="text" id="reg-fito-producto" placeholder="Ej: Abamectina 1.8%">
+                                    <label for="reg-fito-producto">Producto (Herbicida / Fito)</label>
+                                    <input type="text" id="reg-fito-producto" placeholder="Ej: Abamectina o Glifosato">
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-fito-nregistro">Nº Registro MITECO</label>
@@ -591,7 +592,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-fito-cantidad">Cantidad Usada</label>
-                                    <input type="number" id="reg-fito-cantidad" step="0.01" placeholder="Ej: 0.5">
+                                    <input type="number" id="reg-fito-cantidad" step="0.01" min="0" placeholder="Ej: 0.5">
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-fito-dosis">Dosis</label>
@@ -600,12 +601,16 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group" style="min-width: 100%;">
-                                    <label for="reg-fito-plaga">Plaga / Enfermedad</label>
-                                    <input type="text" id="reg-fito-plaga" placeholder="Ej: Psila del pistachero">
+                                    <label for="reg-fito-plaga">Plaga / Enfermedad / Mala Hierba</label>
+                                    <input type="text" id="reg-fito-plaga" placeholder="Ej: Psila, Pulgón, Hierba...">
                                 </div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group" style="min-width: 100%;">
+                                <div class="form-group">
+                                    <label for="reg-fito-aplicador">Nombre del Aplicador</label>
+                                    <input type="text" id="reg-fito-aplicador" placeholder="Ej: Juan Pérez">
+                                </div>
+                                <div class="form-group">
                                     <label for="reg-fito-carnet">Nº Carnet Aplicador</label>
                                     <input type="text" id="reg-fito-carnet" placeholder="Ej: ES-12-345678">
                                 </div>
@@ -613,7 +618,7 @@
                         </div>
 
                         <!-- CAMPOS SIEX: ABONADO (Oculto por defecto) -->
-                        <div id="siex-abono-container" class="card quick-optional" style="background: rgba(163, 214, 94, 0.05); border-color: rgba(163, 214, 94, 0.2); display: none; margin-bottom: 1rem;">
+                        <div id="siex-abono-container" class="card card-abono-mode" style="display: none; margin-bottom: 1rem;">
                             <h4 style="margin-top:0; margin-bottom: 1rem; color: var(--pistachio-400);">🌾 Datos Plan Abonado / Riego (SIEX)</h4>
                             <div class="form-row">
                                 <div class="form-group">
@@ -630,7 +635,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-abono-cantidad-num">Cantidad Usada</label>
-                                    <input type="number" id="reg-abono-cantidad-num" step="0.01" placeholder="Ej: 50">
+                                    <input type="number" id="reg-abono-cantidad-num" step="0.01" min="0" placeholder="Ej: 50">
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-abono-cantidad">Descripción Dosis</label>
@@ -640,7 +645,17 @@
                             <div class="form-row">
                                 <div class="form-group" style="min-width: 100%;">
                                     <label for="reg-abono-agua">Agua de Riego Usada (m³)</label>
-                                    <input type="number" id="reg-abono-agua" placeholder="Ej: 50" step="0.01">
+                                    <input type="number" id="reg-abono-agua" placeholder="Ej: 50" step="0.01" min="0">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="reg-abono-aplicador">Nombre del Aplicador</label>
+                                    <input type="text" id="reg-abono-aplicador" placeholder="Ej: Juan Pérez">
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-abono-carnet">Nº Carnet Aplicador</label>
+                                    <input type="text" id="reg-abono-carnet" placeholder="Ej: ES-12-345678">
                                 </div>
                             </div>
                         </div>
@@ -651,7 +666,7 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-cosecha-kg">Kg Recolectados en Parcela</label>
-                                    <input type="number" id="reg-cosecha-kg" placeholder="Ej: 1500" step="0.01">
+                                    <input type="number" id="reg-cosecha-kg" placeholder="Ej: 1500" step="0.01" min="0">
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-cosecha-lote">Lote Asociado / Albarán</label>
@@ -868,15 +883,15 @@
                         <div class="form-group">
                             <label for="alm-tipo">Tipo</label>
                             <select id="alm-tipo">
-                                <option value="fitosanitario">Fitosanitario</option>
-                                <option value="abono">Abono</option>
                                 <option value="herbicida">Herbicida</option>
+                                <option value="fitosanitario">Fitosanitario (Otros)</option>
+                                <option value="abono">Abono</option>
                                 <option value="otro">Otro</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="alm-stock">Stock actual</label>
-                            <input type="number" id="alm-stock" step="0.01" value="0">
+                            <input type="number" id="alm-stock" step="0.01" min="0" value="0">
                         </div>
                         <div class="form-group">
                             <label for="alm-ubicacion">Ubicación</label>
@@ -919,11 +934,11 @@
                         </div>
                         <div class="form-group">
                             <label for="maq-coste">Coste/Hora (€)</label>
-                            <input type="number" id="maq-coste" step="0.01" value="0">
+                            <input type="number" id="maq-coste" step="0.01" min="0" value="0">
                         </div>
                         <div class="form-group">
                             <label for="maq-precio">Precio Compra (€)</label>
-                            <input type="number" id="maq-precio" step="0.01" value="0">
+                            <input type="number" id="maq-precio" step="0.01" min="0" value="0">
                         </div>
                         <div class="form-group">
                             <label for="maq-fecha">Fecha Compra</label>
@@ -1054,7 +1069,7 @@
                                     <li><strong>⚡ Modo Parte Rápido:</strong> ¿No tienes tiempo y la labor es sencilla? Dale a este botón y ocultará todos los datos avanzados administrativos. La pantalla quedará vacía y solo te obligará a seleccionar la acción y la parcela básica.</li>
                                     <li><strong>Botones de Auto-rellenado (Hoy, 1h):</strong> Toca "Hoy" para estampar la fecha actual sin tocar calendarios, y toca "1h" si echaste una horita rápida en vez de marcar relojes.</li>
                                     <li><strong>Cronómetro:</strong> Si de verdad empiezas a trabajar en ese momento, dale al "Play". Cuando te limpies el sudor y acabes, vuélvelo a pulsar y tendrás tabulado tu tiempo exacto de peonadas.</li>
-                                    <li><strong>Despliegue SIEX:</strong> Aparece solo si hace falta. Si escoges que tipo de labor es un tratamiento "Fitosanitario" o "Abonado", emergerán submenús oficiales para recabar Dosis, N.º MITECO, Plagas y tu N.º de Carnet. Cumplirás la ley de Cuadernos Digitales de inmediato.</li>
+                                    <li><strong>Despliegue SIEX:</strong> Aparece solo si hace falta. Si escoges que tipo de labor es un tratamiento "Herbicida", "Fitosanitario" o "Abonado", emergerán submenús oficiales para recabar Dosis, N.º MITECO, Plagas y tu N.º de Carnet. Cumplirás la ley de Cuadernos Digitales de inmediato.</li>
                                 </ul>
                             </div>
                         </details>
@@ -1259,6 +1274,26 @@
         </main>
     </div>
 
+    <!-- Modal Confirmación -->
+    <div id="modal-confirm" class="modal" style="z-index: 10000;">
+        <div class="modal-content card" style="max-width: 400px;">
+            <h2 id="modal-confirm-title" style="margin-top:0;">Confirmación</h2>
+            <p id="modal-confirm-msg" style="margin-bottom: 2rem; color: var(--text-secondary);"></p>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button id="btn-confirm-cancel" class="btn btn-secondary">Cancelar</button>
+                <button id="btn-confirm-ok" class="btn btn-primary" style="background-color: #ef5350 !important; color: white; border:none;">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="modal-loading" class="modal" style="z-index: 9999;">
+        <div class="modal-content card" style="max-width: 300px; text-align: center; padding: 2rem;">
+            <div class="spinner"></div>
+            <p style="margin-top: 1rem; font-weight: bold;">Cargando...</p>
+        </div>
+    </div>
+
     <!-- MODAL DOCUMENTACIÓN -->
     <div id="modal-docs" class="modal">
         <div class="modal-content card">
@@ -1321,7 +1356,7 @@
                         </div>
                         <div class="form-group">
                             <label for="reparacion-coste">💶 Coste (€)</label>
-                            <input type="number" id="reparacion-coste" step="0.01" placeholder="Ej: 150.50" required>
+                            <input type="number" id="reparacion-coste" step="0.01" min="0" placeholder="Ej: 150.50" required>
                         </div>
                         <div class="form-group">
                             <label for="reparacion-tipo">🔧 Tipo</label>

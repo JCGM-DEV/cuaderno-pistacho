@@ -9,3 +9,4 @@ yarn-error.log*
 .env
 uploads/*
 !uploads/.gitkeep
+!uploads/.htaccess

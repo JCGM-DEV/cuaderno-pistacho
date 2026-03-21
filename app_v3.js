@@ -476,7 +476,7 @@ class GarutoApp {
     }
 
     async _handleDeleteUser(id) {
-        if (!confirm('¿Estás seguro de que deseas eliminar este usuario? No se puede deshacer.')) return;
+        if (!await this._confirm('¿Estás seguro de que deseas eliminar este usuario? No se puede deshacer.')) return;
 
         try {
             const res = await this.store._fetch(`deleteUser&id=${id}`);
@@ -776,6 +776,10 @@ class GarutoApp {
     }
 
     _navigateTo(sectionId) {
+        if (!this.currentUser) {
+            this._handleLogout();
+            return;
+        }
         this.currentSection = sectionId;
 
         // Limpiar estados activos
@@ -875,6 +879,29 @@ class GarutoApp {
     }
 
     // ---- Toast (Premium Notifications) ----
+    _confirm(message) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('modal-confirm');
+            document.getElementById('modal-confirm-msg').textContent = message;
+            modal.classList.add('active');
+
+            const handleCancel = () => { cleanup(); resolve(false); };
+            const handleOk = () => { cleanup(); resolve(true); };
+
+            const btnCancel = document.getElementById('btn-confirm-cancel');
+            const btnOk = document.getElementById('btn-confirm-ok');
+
+            btnCancel.addEventListener('click', handleCancel);
+            btnOk.addEventListener('click', handleOk);
+
+            function cleanup() {
+                modal.classList.remove('active');
+                btnCancel.removeEventListener('click', handleCancel);
+                btnOk.removeEventListener('click', handleOk);
+            }
+        });
+    }
+
     _toast(message, type = 'success', duration = 3500) {
         const container = document.getElementById('toast-container');
         if (!container) return;
@@ -1826,7 +1853,7 @@ class GarutoApp {
                 btn.addEventListener('click', async () => {
                     const id = btn.dataset.id;
                     const parcela = parcelas.find(p => p.id == id);
-                    if (confirm(`¿Eliminar la parcela "${parcela.nombre}"?`)) {
+                    if (await this._confirm(`¿Eliminar la parcela "${parcela.nombre}"?`)) {
                         try {
                             const res = await this.store.delete('parcelas', id);
                             if (res.queued) {
@@ -1965,7 +1992,7 @@ class GarutoApp {
 
             container.querySelectorAll('.btn-delete-doc').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    if (confirm('¿Borrar este documento?')) {
+                    if (await this._confirm('¿Borrar este documento?')) {
                         try {
                             const res = await this.store.delete('documentacion', btn.dataset.id);
                             if (res.queued) {
@@ -2087,7 +2114,7 @@ class GarutoApp {
                 btn.addEventListener('click', async () => {
                     const id = btn.dataset.id;
                     const trabajo = trabajos.find(t => t.id == id);
-                    if (confirm(`¿Eliminar el tipo de trabajo "${trabajo.nombre}"?`)) {
+                    if (await this._confirm(`¿Eliminar el tipo de trabajo "${trabajo.nombre}"?`)) {
                         try {
                             await this.store.delete('trabajos', id);
                             await this._renderTrabajos();
@@ -2161,9 +2188,11 @@ class GarutoApp {
                 const selectedId = trabajoSelect.value;
                 const trabajo = this._trabajosCached.find(t => t.id == selectedId);
                 const tipoLegal = trabajo ? trabajo.tipo_legal : null;
+                const nombre = trabajo ? trabajo.nombre.toLowerCase() : '';
 
-                document.getElementById('siex-fito-container').style.display = tipoLegal === 'fitosanitario' ? 'block' : 'none';
-                document.getElementById('siex-abono-container').style.display = tipoLegal === 'abono' ? 'block' : 'none';
+                const isTreatment = tipoLegal === 'fitosanitario' || tipoLegal === 'herbicida' || nombre.includes('herbi') || nombre.includes('fito');
+                document.getElementById('siex-fito-container').style.display = isTreatment ? 'block' : 'none';
+                document.getElementById('siex-abono-container').style.display = tipoLegal === 'abono' || nombre.includes('abono') ? 'block' : 'none';
                 document.getElementById('siex-cosecha-container').style.display = tipoLegal === 'cosecha' ? 'block' : 'none';
             };
 
@@ -2194,26 +2223,30 @@ class GarutoApp {
         }
 
         const trabajo = this._trabajosCached ? this._trabajosCached.find(t => t.id == trabajoId) : null;
-        let pFito = null, nRegFito = null, dFito = null, plFito = null, carnet = null;
+        let pFito = null, nRegFito = null, dFito = null, plFito = null, carnet = null, nAplicador = null;
         let nutr = null, cantA = null, agua = null;
         let kgC = null, loteC = null;
         let invId = null, cantUsada = null;
 
         if (trabajo) {
-            if (trabajo.tipo_legal === 'fitosanitario') {
+            const nombre = trabajo.nombre.toLowerCase();
+            if (trabajo.tipo_legal === 'fitosanitario' || trabajo.tipo_legal === 'herbicida' || nombre.includes('herbi') || nombre.includes('fito')) {
                 invId = document.getElementById('reg-fito-inventario').value || null;
                 cantUsada = document.getElementById('reg-fito-cantidad').value || null;
                 pFito = document.getElementById('reg-fito-producto').value.trim() || null;
                 nRegFito = document.getElementById('reg-fito-nregistro').value.trim() || null;
                 dFito = document.getElementById('reg-fito-dosis').value.trim() || null;
                 plFito = document.getElementById('reg-fito-plaga').value.trim() || null;
+                nAplicador = document.getElementById('reg-fito-aplicador').value.trim() || null;
                 carnet = document.getElementById('reg-fito-carnet').value.trim() || null;
-            } else if (trabajo.tipo_legal === 'abono') {
+            } else if (trabajo.tipo_legal === 'abono' || trabajo.nombre.toLowerCase().includes('abono')) {
                 invId = document.getElementById('reg-abono-inventario').value || null;
                 cantUsada = document.getElementById('reg-abono-cantidad-num').value || null;
                 nutr = document.getElementById('reg-abono-nutrientes').value.trim() || null;
                 cantA = document.getElementById('reg-abono-cantidad').value.trim() || null;
                 agua = document.getElementById('reg-abono-agua').value ? parseFloat(document.getElementById('reg-abono-agua').value) : null;
+                nAplicador = document.getElementById('reg-abono-aplicador').value.trim() || null;
+                carnet = document.getElementById('reg-abono-carnet').value.trim() || null;
             } else if (trabajo.tipo_legal === 'cosecha') {
                 kgC = document.getElementById('reg-cosecha-kg').value ? parseFloat(document.getElementById('reg-cosecha-kg').value) : null;
                 loteC = document.getElementById('reg-cosecha-lote').value.trim() || null;
@@ -2237,6 +2270,7 @@ class GarutoApp {
                 num_registro_fito: nRegFito,
                 dosis: dFito,
                 plaga: plFito,
+                nombre_aplicador: nAplicador,
                 carnet_aplicador: carnet,
                 nutrientes: nutr,
                 cantidad_abono: cantA,
@@ -2299,7 +2333,7 @@ class GarutoApp {
             }
             
         } catch (err) {
-            this._toast('Error al guardar registro', 'error');
+            this._toast('❌ Error al guardar registro: ' + err.message, 'error');
         }
     }
 
@@ -2407,8 +2441,9 @@ class GarutoApp {
                             ${maq ? `<br><small>🚜 <b>Máquina:</b> ${this._escapeHTML(maq.nombre)} ${r.duracion_horas ? `(${r.duracion_horas}h)` : ''}</small>` : ''}
                             ${r.producto_fito ? `<br><small>🧪 <b>Fito:</b> ${this._escapeHTML(r.producto_fito)} ${r.cantidad_usada ? `(${r.cantidad_usada})` : ''} (Dosis: ${this._escapeHTML(r.dosis || '-')})</small>` : ''}
                             ${r.nutrientes ? `<br><small>🌾 <b>Abono:</b> ${this._escapeHTML(r.nutrientes)} ${r.cantidad_usada ? `(${r.cantidad_usada})` : ''} (${this._escapeHTML(r.cantidad_abono || '-')})</small>` : ''}
+                            ${r.nombre_aplicador || r.carnet_aplicador ? `<br><small>🧑‍🔬 <b>Aplicador:</b> ${this._escapeHTML(r.nombre_aplicador || '-')} ${r.carnet_aplicador ? `(${this._escapeHTML(r.carnet_aplicador)})` : ''}</small>` : ''}
                             ${r.kg_recolectados ? `<br><small>🧺 <b>Cosecha:</b> ${r.kg_recolectados} kg (Lote: ${this._escapeHTML(r.lote_trazabilidad || '-')})</small>` : ''}
-                            ${!r.notas && !r.producto_fito && !r.nutrientes && !r.kg_recolectados && !maq ? '—' : ''}
+                            ${!r.notas && !r.producto_fito && !r.nutrientes && !r.kg_recolectados && !maq && !r.nombre_aplicador && !r.carnet_aplicador ? '—' : ''}
                             ${hasFotos ? `<button class="btn-view-fotos" data-id="${r.id}" title="Ver foto adjunta" type="button" style="margin-left: 5px; background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0;">📷</button>` : ''}
                         </td>
                         <td class="no-print">
@@ -2438,7 +2473,7 @@ class GarutoApp {
 
             tbody.querySelectorAll('.btn-delete-registro').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    if (confirm('¿Eliminar este registro?')) {
+                    if (await this._confirm('¿Eliminar este registro?')) {
                         try {
                             await this.store.delete('registros', btn.dataset.id);
                             await this._renderRecords();
@@ -2664,7 +2699,7 @@ class GarutoApp {
             gridEl.querySelectorAll('.photo-card-delete').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    if (confirm('¿Eliminar esta foto?')) {
+                    if (await this._confirm('¿Eliminar esta foto?')) {
                         try {
                             await this.store.delete('fotos', btn.dataset.id);
                             await this._renderPhotoGrid(parcelaId);
@@ -2921,9 +2956,10 @@ class GarutoApp {
             });
             document.getElementById('form-almacen').reset();
             await this._renderAlmacen();
+            this._renderRegistrarSelects();
             this._toast(`Producto "${nombre}" añadido al almacén`);
         } catch (err) {
-            this._toast('Error al añadir al almacén', 'error');
+            this._toast('❌ Error al añadir al almacén: ' + err.message, 'error');
         }
     }
 
@@ -2957,7 +2993,7 @@ class GarutoApp {
 
             container.querySelectorAll('.btn-delete-almacen').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    if (confirm('¿Eliminar producto?')) {
+                    if (await this._confirm('¿Eliminar producto?')) {
                         await this.store.delete('inventario', btn.dataset.id);
                         this._renderAlmacen();
                     }
@@ -3026,7 +3062,7 @@ class GarutoApp {
                     const item = btn.closest('.list-item');
                     const nombre = item.querySelector('.list-item-name').textContent;
                     
-                    if (confirm(`¿Dar de baja la máquina "${nombre}"?`)) {
+                    if (await this._confirm(`¿Dar de baja la máquina "${nombre}"?`)) {
                         const precioStr = prompt(`Si la has vendido o tiene un valor de recuperación, introduce el importe cobrado (€). Si no, pon 0:`, "0");
                         if (precioStr !== null) {
                             const precio = parseFloat(precioStr) || 0;
@@ -3175,7 +3211,7 @@ class GarutoApp {
 
             container.querySelectorAll('.btn-delete-reparacion').forEach(btn => {
                 btn.addEventListener('click', async () => {
-                    if (confirm('¿Eliminar este registro de gasto?')) {
+                    if (await this._confirm('¿Eliminar este registro de gasto?')) {
                         await this.store.delete('maquinaria_reparaciones', btn.dataset.id);
                         this._renderReparaciones(btn.dataset.maqId);
                         if (this.currentSection === 'dashboard') this._renderDashboard();
@@ -3393,7 +3429,7 @@ class GarutoApp {
     }
 
     async _deleteFinanza(id) {
-        if (!confirm('¿Seguro que quieres borrar este movimiento?')) return;
+        if (!await this._confirm('¿Seguro que quieres borrar este movimiento?')) return;
         try {
             await this.store.delete('finanzas', id);
             this._toast('Movimiento borrado', 'success');
@@ -3579,7 +3615,7 @@ class GarutoApp {
     }
 
     async _deleteRegistroCosecha(id) {
-        if (!confirm('¿Seguro que quieres borrar este registro de cosecha del campo?')) return;
+        if (!await this._confirm('¿Seguro que quieres borrar este registro de cosecha del campo?')) return;
         try {
             await this.store.delete('registros', id);
             this._toast('Registro de cosecha eliminado', 'info');
@@ -3608,7 +3644,7 @@ class GarutoApp {
     }
 
     async _deleteVenta(id) {
-        if (!confirm('¿Seguro que quieres borrar esta venta?')) return;
+        if (!await this._confirm('¿Seguro que quieres borrar esta venta?')) return;
         try {
             await this.store.delete('cosechas_ventas', id);
             this._toast('Venta borrada', 'success');

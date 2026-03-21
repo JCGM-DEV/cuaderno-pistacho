@@ -179,7 +179,7 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
     checkAdmin();
     $db = getDB();
     
-    // 1. Garantizar Tabla
+    // 1. Garantizar Tablas
     $db->exec("CREATE TABLE IF NOT EXISTS usuarios (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) NOT NULL UNIQUE,
@@ -187,6 +187,16 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
         display_name VARCHAR(100),
         role ENUM('admin', 'usuario') DEFAULT 'usuario',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    
+    $db->exec("CREATE TABLE IF NOT EXISTS inventario (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        tipo VARCHAR(50),
+        stock DECIMAL(10,2) DEFAULT 0,
+        unidad VARCHAR(50) DEFAULT 'unidades',
+        ubicacion VARCHAR(255),
+        precio_unidad DECIMAL(10,2) DEFAULT 0.00
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
     // 2. Garantizar Columnas (Compatibilidad con MySQL < 8.0.19)
@@ -196,6 +206,40 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
         if (!in_array('email', $cols)) { $db->exec("ALTER TABLE usuarios ADD email VARCHAR(100) NULL AFTER display_name"); }
         if (!in_array('telefono', $cols)) { $db->exec("ALTER TABLE usuarios ADD telefono VARCHAR(20) NULL AFTER email"); }
     } catch (Exception $e) {}
+
+    // 3. Garantizar Columnas en Registros (nombre_aplicador)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM registros");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('nombre_aplicador', $cols)) { 
+            $db->exec("ALTER TABLE registros ADD nombre_aplicador VARCHAR(255) NULL AFTER carnet_aplicador"); 
+        }
+    } catch (Exception $e) {}
+
+    // 4. Garantizar Columnas en Inventario (tipo enum fix y columnas extra)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM inventario");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_ASSOC);
+        $foundPrecio = false;
+        $foundUbicacion = false;
+        $foundUnidad = false;
+        foreach ($cols as $col) {
+            if ($col['Field'] === 'precio_unidad') $foundPrecio = true;
+            if ($col['Field'] === 'ubicacion') $foundUbicacion = true;
+            if ($col['Field'] === 'unidad') $foundUnidad = true;
+            if ($col['Field'] === 'tipo') {
+                if (strpos($col['Type'], 'enum') !== false && strpos($col['Type'], 'herbicida') === false) {
+                    $newType = str_replace(")", ",'herbicida')", $col['Type']);
+                    $db->exec("ALTER TABLE inventario MODIFY COLUMN tipo $newType");
+                }
+            }
+        }
+        if (!$foundUnidad) { $db->exec("ALTER TABLE inventario ADD unidad VARCHAR(50) DEFAULT 'unidades'"); }
+        if (!$foundUbicacion) { $db->exec("ALTER TABLE inventario ADD ubicacion VARCHAR(255) NULL"); }
+        if (!$foundPrecio) { $db->exec("ALTER TABLE inventario ADD precio_unidad DECIMAL(10,2) DEFAULT 0.00"); }
+    } catch (Exception $e) {
+        error_log("DB INIT ERROR (Inventario): " . $e->getMessage());
+    }
 
     if ($action === 'getUsers') {
         $stmt = $db->query("SELECT id, username, display_name, role, email, telefono, created_at FROM usuarios ORDER BY id ASC");
@@ -426,7 +470,8 @@ switch ($action) {
                 $input['predefinido'] ?? 0
             ]);
         } elseif ($collection === 'inventario') {
-            $stmt = $db->prepare("INSERT INTO inventario (nombre, tipo, stock, unidad, ubicacion, precio_unidad) VALUES (?, ?, ?, ?, ?, ?)");
+            try {
+                $stmt = $db->prepare("INSERT INTO inventario (nombre, tipo, stock, unidad, ubicacion, precio_unidad) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 $input['nombre'] ?? '',
                 $input['tipo'] ?? 'otro',
@@ -435,6 +480,11 @@ switch ($action) {
                 $input['ubicacion'] ?? null,
                 $input['precio_unidad'] ?? 0.00
             ]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Error en la base de datos: ' . $e->getMessage()]);
+            exit;
+        }
         } elseif ($collection === 'maquinaria') {
             $stmt = $db->prepare("INSERT INTO maquinaria (nombre, tipo, coste_hora, precio_compra, fecha_compra, estado) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
@@ -463,9 +513,10 @@ switch ($action) {
         } elseif ($collection === 'registros') {
             $invId = isset($input['inventarioId']) ? intval($input['inventarioId']) : null;
             $maqId = isset($input['maquinariaId']) ? intval($input['maquinariaId']) : null;
-            $cantUsada = isset($input['cantidad_usada']) ? floatval($input['cantidad_usada']) : null;
-            $duracion = isset($input['duracion_horas']) ? floatval($input['duracion_horas']) : null;
-            $costeManual = isset($input['coste']) ? floatval($input['coste']) : 0.00;
+            $cantUsada = isset($input['cantidad_usada']) ? abs(floatval($input['cantidad_usada'])) : null;
+            $duracion = isset($input['duracion_horas']) ? abs(floatval($input['duracion_horas'])) : null;
+            $costeManual = isset($input['coste']) ? abs(floatval($input['coste'])) : 0.00;
+            $fechaReal = !empty($input['fecha']) ? $input['fecha'] : date('Y-m-d');
 
             if ($invId && $cantUsada) {
                 $db->prepare("UPDATE inventario SET stock = stock - ? WHERE id = ?")->execute([$cantUsada, $invId]);
@@ -486,7 +537,7 @@ switch ($action) {
                 $tipoFin = $costeManual > 0 ? 'gasto' : 'ingreso';
                 $stmtF = $db->prepare("INSERT INTO finanzas (fecha, tipo, categoria, monto, descripcion, referencia_id, referencia_tabla) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $stmtF->execute([
-                    $input['fecha'] ?? date('Y-m-d'),
+                    $fechaReal,
                     $tipoFin,
                     'trabajo',
                     abs($costeManual),
@@ -497,37 +548,44 @@ switch ($action) {
                 $finId = $db->lastInsertId();
             }
 
-            $stmt = $db->prepare("INSERT INTO registros (parcelaId, trabajoId, maquinariaId, fecha, notas, coste, num_personas, nombres_personas, duracion_horas, inventarioId, cantidad_usada, producto_fito, num_registro_fito, dosis, plaga, carnet_aplicador, nutrientes, cantidad_abono, agua_riego, kg_recolectados, lote_trazabilidad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                intval($input['parcelaId']),
-                intval($input['trabajoId']),
-                $maqId,
-                $input['fecha'] ?? date('Y-m-d'),
-                $input['notas'] ?? '',
-                $costeManual,
-                isset($input['num_personas']) ? intval($input['num_personas']) : 1,
-                isset($input['nombres_personas']) ? $input['nombres_personas'] : null,
-                $duracion,
-                $invId,
-                $cantUsada,
-                $input['producto_fito'] ?? null,
-                $input['num_registro_fito'] ?? null,
-                $input['dosis'] ?? null,
-                $input['plaga'] ?? null,
-                $input['carnet_aplicador'] ?? null,
-                $input['nutrientes'] ?? null,
-                $input['cantidad_abono'] ?? null,
-                isset($input['agua_riego']) && is_numeric($input['agua_riego']) ? floatval($input['agua_riego']) : null,
-                isset($input['kg_recolectados']) && is_numeric($input['kg_recolectados']) ? floatval($input['kg_recolectados']) : null,
-                $input['lote_trazabilidad'] ?? null
-            ]);
-            
-            $newRegId = $db->lastInsertId();
-            if (isset($finId)) {
-                $db->prepare("UPDATE finanzas SET referencia_id = ? WHERE id = ?")->execute([$newRegId, $finId]);
+            try {
+                $stmt = $db->prepare("INSERT INTO registros (parcelaId, trabajoId, maquinariaId, fecha, notas, coste, num_personas, nombres_personas, duracion_horas, inventarioId, cantidad_usada, producto_fito, num_registro_fito, dosis, plaga, carnet_aplicador, nombre_aplicador, nutrientes, cantidad_abono, agua_riego, kg_recolectados, lote_trazabilidad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    intval($input['parcelaId']),
+                    intval($input['trabajoId']),
+                    $maqId,
+                    $fechaReal,
+                    $input['notas'] ?? '',
+                    $costeManual,
+                    isset($input['num_personas']) ? intval($input['num_personas']) : 1,
+                    isset($input['nombres_personas']) ? $input['nombres_personas'] : null,
+                    $duracion,
+                    $invId,
+                    $cantUsada,
+                    $input['producto_fito'] ?? null,
+                    $input['num_registro_fito'] ?? null,
+                    $input['dosis'] ?? null,
+                    $input['plaga'] ?? null,
+                    $input['carnet_aplicador'] ?? null,
+                    $input['nombre_aplicador'] ?? null,
+                    $input['nutrientes'] ?? null,
+                    $input['cantidad_abono'] ?? null,
+                    isset($input['agua_riego']) && is_numeric($input['agua_riego']) ? floatval($input['agua_riego']) : null,
+                    isset($input['kg_recolectados']) && is_numeric($input['kg_recolectados']) ? floatval($input['kg_recolectados']) : null,
+                    $input['lote_trazabilidad'] ?? null
+                ]);
+                
+                $newRegId = $db->lastInsertId();
+                if (isset($finId)) {
+                    $db->prepare("UPDATE finanzas SET referencia_id = ? WHERE id = ?")->execute([$newRegId, $finId]);
+                }
+                $stmt2 = $db->prepare("SELECT * FROM registros WHERE id = ?");
+                $stmt2->execute([$newRegId]);
+            } catch (PDOException $e) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Error en la base de datos (registros): ' . $e->getMessage()]);
+                exit;
             }
-            $stmt2 = $db->prepare("SELECT * FROM registros WHERE id = ?");
-            $stmt2->execute([$newRegId]);
         } elseif ($collection === 'planing_progreso') {
             $stmt = $db->prepare("INSERT INTO planing_progreso (anio, mes_idx, tarea_idx, completado) VALUES (?, ?, ?, ?)");
             $stmt->execute([
@@ -771,9 +829,9 @@ switch ($action) {
         }
 
         // Validar tipo de archivo
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $allowedTypes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
         $fileType = mime_content_type($_FILES['foto']['tmp_name']);
-        if (!in_array($fileType, $allowedTypes)) {
+        if (!array_key_exists($fileType, $allowedTypes)) {
             http_response_code(400);
             echo json_encode(['error' => 'Tipo de archivo no permitido. Usa JPG, PNG, WebP o GIF.']);
             exit;
@@ -791,9 +849,9 @@ switch ($action) {
             mkdir(UPLOAD_DIR, 0755, true);
         }
 
-        // Generar nombre único
-        $ext = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION) ?: 'jpg';
-        $filename = 'p' . $parcelaId . '_' . $anio . '_' . uniqid() . '.' . strtolower($ext);
+        // Generar nombre único usando extensión segura
+        $safeExt = $allowedTypes[$fileType];
+        $filename = 'p' . $parcelaId . '_' . $anio . '_' . uniqid() . '.' . $safeExt;
 
         // Mover archivo
         if (!move_uploaded_file($_FILES['foto']['tmp_name'], UPLOAD_DIR . $filename)) {

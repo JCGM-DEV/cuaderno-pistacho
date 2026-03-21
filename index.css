@@ -734,6 +734,17 @@ h4 {
     font-size: 0.95rem;
 }
 
+/* ---- SIEX Custom Cards ---- */
+.card-fito-mode {
+    background: rgba(239, 83, 80, 0.05);
+    border-color: rgba(239, 83, 80, 0.2);
+}
+
+.card-abono-mode {
+    background: rgba(163, 214, 94, 0.05);
+    border-color: rgba(163, 214, 94, 0.2);
+}
+
 /* ---- Footer ---- */
 .main-footer {
     position: fixed;

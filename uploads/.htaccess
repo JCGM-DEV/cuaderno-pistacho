@@ -1,0 +1,7 @@
+# Disallow PHP and other scripts from executing in this directory
+<FilesMatch "\.(php|php2|php3|php4|php5|php6|php7|php8|phps|phtml|pl|py|jsp|asp|htm|html|shtml|sh|cgi)$">
+    SetHandler None
+    ForceType text/plain
+</FilesMatch>
+
+Options -Indexes
