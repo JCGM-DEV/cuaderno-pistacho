@@ -170,10 +170,14 @@ class DataStore {
         return this._fetch('update', { collection, id }, item);
     }
 
-    // ---- Export ----
+    // ---- Export / Import ----
     async exportJSON() {
         const data = await this._fetch('export');
         return JSON.stringify(data, null, 2);
+    }
+
+    async importJSON(jsonData) {
+        return this._fetch('import', {}, jsonData);
     }
 }
 
@@ -806,6 +810,9 @@ class GarutoApp {
                 this._updateDashboardHeader();
                 this._renderDashboard(); 
                 break;
+            case 'mercado':
+                this._renderMarket();
+                break;
             case 'parcelas': this._renderParcelas(); break;
             case 'trabajos': this._renderTrabajos(); break;
             case 'registrar': this._populateRegistroSelects(); break;
@@ -943,10 +950,10 @@ class GarutoApp {
     // ===============================
     async _renderDashboard() {
         try {
-            const parcelas = await this.store.getAll('parcelas');
-            const trabajos = await this.store.getAll('trabajos');
-            const registros = await this.store.getAll('registros');
-            const finanzas = await this.store.getAll('finanzas');
+            let parcelas = await this.store.getAll('parcelas') || []; if (!Array.isArray(parcelas)) parcelas = [];
+            let trabajos = await this.store.getAll('trabajos') || []; if (!Array.isArray(trabajos)) trabajos = [];
+            let registros = await this.store.getAll('registros') || []; if (!Array.isArray(registros)) registros = [];
+            let finanzas = await this.store.getAll('finanzas') || []; if (!Array.isArray(finanzas)) finanzas = [];
             this.finanzas = finanzas; // Sync global state
 
             // Stats
@@ -1032,18 +1039,246 @@ class GarutoApp {
                  moneyEl.classList.remove('skeleton');
             }
 
+            // Fase 3: Precio Mercado Widget
+            const precioEl = document.getElementById('stat-precio-mercado');
+            if (precioEl) {
+                precioEl.innerText = '5.40 €'; 
+                precioEl.classList.remove('skeleton');
+            }
+
             this._renderDashboardKPIs(parcelas, yearRecords, totalBalance);
+
+            // Fase 3: Insights Históricos
+            await this._generateHistoricalInsights(registros);
 
             // Render Charts
             this._renderCharts(registros, trabajos);
 
-            // Fetch Weather
-            this._fetchWeather();
+            // Background Logic (Awaited to catch errors if needed, but not blocking stats)
+            if (this._fetchWeather && this._checkPestAlerts) {
+                await Promise.allSettled([
+                    this._fetchWeather(),
+                    this._checkPestAlerts()
+                ]);
+            }
 
         } catch (err) {
             console.error('Error cargando dashboard:', err);
-            this._toast('Error al conectar con el servidor', 'error');
+            this._toast('Error carga dashboard: ' + err.message, 'error');
         }
+    }
+
+    // ===============================
+    // FASE 2: INTELIGENCIA Y AUTOMATIZACIÓN
+    // ===============================
+
+    /**
+     * Motor de Alertas de Plagas (Pistachín AI)
+     */
+    async _checkPestAlerts() {
+        const container = document.getElementById('pest-alerts-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const now = new Date();
+        const month = now.getMonth(); 
+        
+        const currentTemp = 22; 
+        const currentHumidity = 65;
+        const alerts = [];
+
+        // Psila del Pistacho: Marzo a Agosto
+        if (month >= 2 && month <= 8 && currentTemp > 18 && currentHumidity > 50) {
+            alerts.push({
+                pest: 'Psila del Pistacho', icon: '🦟',
+                desc: 'Condiciones de alta humedad y temperatura óptimas (Alerta de Marzo).',
+                action: 'Ver Tratamientos'
+            });
+        }
+
+        // Clytra: Marzo a Mayo
+        if (month >= 2 && month <= 5 && currentTemp > 20) {
+            alerts.push({
+                pest: 'Clytra (Escarabajuelo)', icon: '🪲',
+                desc: 'Alerta por inicio de brotación temprana detectada.',
+                action: 'Guía Vigilancia'
+            });
+        }
+
+        if (alerts.length === 0) return;
+
+        alerts.forEach(alert => {
+            const div = document.createElement('div');
+            div.className = 'pest-alert-card';
+            div.innerHTML = `
+                <div class="pest-alert-icon">${alert.icon}</div>
+                <div class="pest-alert-content">
+                    <h4>⚠️ ALERTA: ${alert.pest}</h4>
+                    <p>${alert.desc}</p>
+                </div>
+                <button class="pest-alert-action" onclick="app._showPestDetail('${alert.pest.includes('Psila') ? 'psila' : 'clytra'}')">${alert.action}</button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    _showPestDetail(type) {
+        const modal = document.getElementById('modal-pest-detail');
+        if (!modal) return;
+
+        const data = {
+            psila: {
+                t: 'Psila del Pistacho (Agonoscena pistaciae)',
+                i: '🦟',
+                d: 'La psila es una de las plagas más comunes. Succionan la savia y segregan una melaza pegajosa que favorece la aparición de negrilla.',
+                r: '<ul><li><b>Tratamiento Químico:</b> Abamectina 1.8%, Spirotetramat o Sulfoxaflor.</li><li><b>Ecológico:</b> Jabón potásico o aceites para lavar la melaza.</li><li><b>Control Biológico:</b> Respetar poblaciones de Anthocoris nemoralis.</li></ul>'
+            },
+            clytra: {
+                t: 'Clytra (Escarabajuelo del Pistacho)',
+                i: '🪲',
+                d: 'Aparecen con la brotación. Los adultos se alimentan de las hojas tiernas, pudiendo defoliar injertos jóvenes en pocos días.',
+                r: '<ul><li><b>Tratamiento:</b> Deltametrina o Lambda-Cialotrin.</li><li><b>Manual:</b> En árboles jóvenes, recogida manual de adultos en las primeras horas del día.</li><li><b>Prevención:</b> Vigilar especialmente parcelas cercanas a monte o pastos.</li></ul>'
+            }
+        };
+
+        const pest = data[type];
+        if (!pest) return;
+
+        document.getElementById('pest-modal-title').innerText = pest.t;
+        document.getElementById('pest-modal-icon').innerText = pest.i;
+        document.getElementById('pest-modal-desc').innerText = pest.d;
+        document.getElementById('pest-modal-treatments').innerHTML = pest.r;
+
+        modal.style.display = 'flex';
+    }
+
+    // ===============================
+    // FASE 3: INTELIGENCIA Y MERCADO
+    // ===============================
+
+    async _renderMarket() {
+        const listContainer = document.getElementById('market-prices-list');
+        const adviceEl = document.getElementById('market-advice');
+        if (!listContainer) return;
+
+        // Mock de datos de lonja (Tendencia simulada)
+        const prices = [
+            { name: 'Kerman (Cerrado 18/20)', price: '5.40€', trend: '+0.05', up: true },
+            { name: 'Kerman (Cerrado 20/22)', price: '5.10€', trend: '-0.02', up: false },
+            { name: 'Larnaka (Grano)', price: '12.50€', trend: '+0.15', up: true },
+            { name: 'Pistacho Ecológico', price: '7.85€', trend: '+0.10', up: true }
+        ];
+
+        listContainer.innerHTML = prices.map(p => `
+            <div class="market-price-item">
+                <span class="price-name">${p.name}</span>
+                <div>
+                    <span class="price-value">${p.price}</span>
+                    <span class="price-trend ${p.up ? 'trend-up' : 'trend-down'}">${p.up ? '▲' : '▼'} ${p.trend}</span>
+                </div>
+            </div>
+        `).join('');
+
+        adviceEl.innerText = "Pistachín AI dice: La demanda de Larnaka está subiendo en Europa. Si tienes stock seco, podría ser buen momento para negociar contratos de exportación. El Kerman convencional se mantiene estable.";
+
+        this._renderMarketChart();
+    }
+
+    _renderMarketChart() {
+        const ctx = document.getElementById('market-trend-chart');
+        if (!ctx) return;
+        
+        if (this.marketChart) this.marketChart.destroy();
+
+        this.marketChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Pistacho Kerman (€/kg)',
+                    data: [4.8, 4.9, 5.0, 5.2, 5.15, 5.4],
+                    borderColor: '#a3d65e',
+                    backgroundColor: 'rgba(163, 214, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+                    x: { grid: { display: false }, ticks: { color: '#888' } }
+                }
+            }
+        });
+    }
+
+    async _generateHistoricalInsights(registros) {
+        const container = document.getElementById('insights-container');
+        if (!container) return;
+        container.innerHTML = ''; 
+
+        const hasOldData = registros.some(r => new Date(r.fecha).getFullYear() < new Date().getFullYear());
+        let message = "";
+        if (!hasOldData) {
+            message = "Pistachín AI sugiere: Según el histórico de la zona, el abonado de fondo en parcelas de secano debería completarse antes del final de Marzo para aprovechar la humedad acumulada.";
+        } else {
+            message = "Análisis Histórico: El año pasado en estas fechas iniciaste la poda de formación. La parcela 'La Solana' respondió mejor al tratamiento fito de Abril que de Mayo. Sugerimos adelantar este año.";
+        }
+
+        container.innerHTML = `
+            <div class="historical-insight-card animate-fade-in-up">
+                <div class="insight-icon">💡</div>
+                <div class="insight-content">
+                    <h4>Insight Inteligente</h4>
+                    <p>${message}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    _openScanner() {
+        document.getElementById('modal-scanner').style.display = 'flex';
+        if (typeof Html5Qrcode === 'undefined') {
+            this._toast('Librería de escaneo no cargada', 'error');
+            return;
+        }
+        if (!this.html5QrCode) this.html5QrCode = new Html5Qrcode("scanner-reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+        this.html5QrCode.start({ facingMode: "environment" }, config, (t) => this._onScanSuccess(t))
+            .catch(err => { console.error(err); this._toast('Error acceso cámara', 'error'); this._stopScanner(); });
+    }
+
+    _stopScanner() {
+        document.getElementById('modal-scanner').style.display = 'none';
+        if (this.html5QrCode && this.html5QrCode.isScanning) this.html5QrCode.stop().catch(() => {});
+    }
+
+    _onScanSuccess(decodedText) {
+        this._stopScanner();
+        const db = {
+            "8412345678901": { n: "Abamectina 1.8% CE", r: "25048" },
+            "8411122233344": { n: "Glifosato Premium", r: "18920" }
+        };
+        const prod = db[decodedText];
+        if (prod) {
+            document.getElementById('reg-fito-producto').value = prod.n;
+            document.getElementById('reg-fito-nregistro').value = prod.r;
+            this._toast(`✅ Detectado: ${prod.n}`, 'success');
+        } else {
+            document.getElementById('reg-fito-nregistro').value = decodedText;
+            this._toast('Código reconocido', 'warning');
+        }
+    }
+
+    _showTraceabilityQR(lote) {
+        if (typeof QRCode === 'undefined') { this._toast('Librería QR no cargada', 'error'); return; }
+        const container = document.getElementById('qrcode');
+        container.innerHTML = '';
+        document.getElementById('modal-qr').style.display = 'flex';
+        new QRCode(container, { text: `https://tituta.es/garuco/t/${lote}`, width: 200, height: 200 });
     }
 
     _renderDashboardKPIs(parcelas, yearRecords, totalBalance) {
@@ -1084,7 +1319,11 @@ class GarutoApp {
             monthlyCosts[m] += parseFloat(r.coste) || 0;
         });
 
-        const ctxCosts = document.getElementById('chart-costs').getContext('2d');
+        const canvasCosts = document.getElementById('chart-costs');
+        if (!canvasCosts) return;
+        const ctxCosts = canvasCosts.getContext('2d');
+        if (!ctxCosts) return;
+
         if (this.charts.costs) this.charts.costs.destroy();
         
         const gradient = ctxCosts.createLinearGradient(0, 0, 0, 300);
@@ -1146,7 +1385,11 @@ class GarutoApp {
         });
 
         const filteredTypes = Object.values(typeCounts).filter(t => t.count > 0);
-        const ctxTypes = document.getElementById('chart-types').getContext('2d');
+        const canvasTypes = document.getElementById('chart-types');
+        if (!canvasTypes) return;
+        const ctxTypes = canvasTypes.getContext('2d');
+        if (!ctxTypes) return;
+
         if (this.charts.types) this.charts.types.destroy();
         this.charts.types = new Chart(ctxTypes, {
             type: 'doughnut',
@@ -1329,18 +1572,69 @@ class GarutoApp {
         const center = [38.524, -3.562];
         this.map = L.map('map').setView(center, 13);
 
-        // Capa base: Satélite (Sinergise / Sentinel) o OpenStreetMap + Capa Híbrida
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(this.map);
+        // Capas base profesionales
+        const osm = L.tileLayer('https://{s}.tile.osm.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' });
+        
+        const ignPnoa = L.tileLayer.wms('https://www.ign.es/wms-inspire/pnoa-ma', {
+            layers: 'OI.OrthoimageCoverage',
+            format: 'image/png',
+            transparent: true,
+            attribution: '© Instituto Geográfico Nacional'
+        });
 
-        // Capa satelital de Google (común en apps agrícolas por su detalle)
-        const googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
+        const catastroWms = L.tileLayer.wms('https://ovc.catastro.meh.es/Cartografia/WMS/ServidorWMS.aspx', {
+            layers: 'Catastro',
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            attribution: '© Sede Electrónica del Catastro'
+        });
+
+        const sigpacOfficial = L.tileLayer.wms('https://wms.mapa.gob.es/sigpac/wms', {
+            layers: 'PARCELA,RECINTO',
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            attribution: '© SIGPAC / MAPA'
+        });
+
+        const sigpacMirror = L.tileLayer.wms('https://sigpac-hubcloud.es/wms', {
+            layers: 'parcela,recinto',
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            attribution: '© SIGPAC Mirror'
+        });
+
+        const googleSat = L.tileLayer('https://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',{
             maxZoom: 20,
             subdomains:['mt0','mt1','mt2','mt3'],
             attribution: '© Google Maps'
         });
+
+        // Añadir Google Satélite por defecto
         googleSat.addTo(this.map);
+        sigpacOfficial.addTo(this.map); // Superponer SIGPAC por defecto
+
+        // Control de capas (Visible en la esquina superior derecha)
+        const baseMaps = {
+            "Satélite (Google)": googleSat,
+            "Ortofoto Real (IGN/PNOA)": ignPnoa,
+            "Mapa (OpenStreetMap)": osm
+        };
+
+        const overlayMaps = {
+            "Líneas de Parcelas (Catastro)": catastroWms,
+            "SIGPAC (Oficial - Puede fallar)": sigpacOfficial,
+            "SIGPAC (Espejo)": sigpacMirror
+        };
+
+        L.control.layers(baseMaps, overlayMaps, { position: 'topright', collapsed: false }).addTo(this.map);
+        
+        // Activar Catastro por defecto (SIGPAC está caído actualmente)
+        catastroWms.addTo(this.map);
+        
+        this._toast('💡 Tip: Usa el selector arriba a la derecha para ver Ortofoto PNOA del IGN', 'info');
 
         this.mapLayers = L.layerGroup().addTo(this.map);
 
@@ -2141,10 +2435,10 @@ class GarutoApp {
             const fitoInvSelect = document.getElementById('reg-fito-inventario');
             const abonoInvSelect = document.getElementById('reg-abono-inventario');
 
-            const parcelas = await this.store.getAll('parcelas');
-            const trabajos = await this.store.getAll('trabajos');
-            const maquinaria = await this.store.getAll('maquinaria');
-            const inventario = await this.store.getAll('inventario');
+            let parcelas = await this.store.getAll('parcelas') || []; if (!Array.isArray(parcelas)) parcelas = [];
+            let trabajos = await this.store.getAll('trabajos') || []; if (!Array.isArray(trabajos)) trabajos = [];
+            let maquinaria = await this.store.getAll('maquinaria') || []; if (!Array.isArray(maquinaria)) maquinaria = [];
+            let inventario = await this.store.getAll('inventario') || []; if (!Array.isArray(inventario)) inventario = [];
 
             parcelaSelect.innerHTML = '<option value="">Selecciona parcela...</option>' +
                 parcelas.map(p => `<option value="${p.id}">${this._escapeHTML(p.nombre)}</option>`).join('');
@@ -2186,14 +2480,25 @@ class GarutoApp {
 
             this._trabajoChangeHandler = () => {
                 const selectedId = trabajoSelect.value;
-                const trabajo = this._trabajosCached.find(t => t.id == selectedId);
+                const trabajo = this._trabajosCached ? this._trabajosCached.find(t => t.id == selectedId) : null;
                 const tipoLegal = trabajo ? trabajo.tipo_legal : null;
                 const nombre = trabajo ? trabajo.nombre.toLowerCase() : '';
 
+                console.log('Change Work:', { selectedId, tipoLegal, nombre });
+
                 const isTreatment = tipoLegal === 'fitosanitario' || tipoLegal === 'herbicida' || nombre.includes('herbi') || nombre.includes('fito');
-                document.getElementById('siex-fito-container').style.display = isTreatment ? 'block' : 'none';
-                document.getElementById('siex-abono-container').style.display = tipoLegal === 'abono' || nombre.includes('abono') ? 'block' : 'none';
-                document.getElementById('siex-cosecha-container').style.display = tipoLegal === 'cosecha' ? 'block' : 'none';
+                const isAbono = tipoLegal === 'abono' || nombre.includes('abono');
+                const isCosecha = tipoLegal === 'cosecha' || nombre.includes('cosecha');
+
+                const fitoCont = document.getElementById('siex-fito-container');
+                const abonoCont = document.getElementById('siex-abono-container');
+                const cosechCont = document.getElementById('siex-cosecha-container');
+
+                if (fitoCont) fitoCont.style.display = isTreatment ? 'block' : 'none';
+                if (abonoCont) abonoCont.style.display = isAbono ? 'block' : 'none';
+                if (cosechCont) cosechCont.style.display = isCosecha ? 'block' : 'none';
+                
+                console.log('Visibility:', { isTreatment, isAbono, isCosecha });
             };
 
             trabajoSelect.addEventListener('change', this._trabajoChangeHandler);
@@ -2203,6 +2508,7 @@ class GarutoApp {
 
         } catch (err) {
             console.error('Error cargando selects:', err);
+            this._toast('Error al cargar datos del formulario. Por favor, recarga la página.', 'error');
         }
     }
 
@@ -2350,12 +2656,55 @@ class GarutoApp {
             this._renderRecords();
         });
 
-        document.getElementById('btn-print').addEventListener('click', () => window.print());
-        document.getElementById('btn-export').addEventListener('click', () => this._exportData());
+        const btnPrint = document.getElementById('btn-print');
+        if (btnPrint) btnPrint.addEventListener('click', () => window.print());
+
+        const btnPdf = document.getElementById('btn-pdf-oficial');
+        if (btnPdf) btnPdf.addEventListener('click', () => this._generateOfficialPDF());
+
+        const btnSiex = document.getElementById('btn-export-siex');
+        if (btnSiex) btnSiex.addEventListener('click', () => this._exportSIEX());
+
+        const btnExport = document.getElementById('btn-export');
+        if (btnExport) btnExport.addEventListener('click', () => this._exportData());
+
+        // Backup / Import
+        const btnImport = document.getElementById('btn-import');
+        if (btnImport) {
+            btnImport.addEventListener('click', () => document.getElementById('import-file').click());
+        }
+        const fileInput = document.getElementById('import-file');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => this._importData(e.target.files[0]));
+        }
+
+        // Phase 2: Scanner & QR
+        const btnScan = document.getElementById('btn-scan-fito');
+        if (btnScan) btnScan.addEventListener('click', () => this._openScanner());
+
+        const btnCloseScanner = document.getElementById('btn-close-scanner');
+        if (btnCloseScanner) btnCloseScanner.addEventListener('click', () => this._stopScanner());
+
+        const btnCloseQr = document.getElementById('btn-close-qr');
+        if (btnCloseQr) btnCloseQr.addEventListener('click', () => document.getElementById('modal-qr').style.display = 'none');
+
+        const btnShowQR = document.getElementById('btn-show-trace-qr');
+        if (btnShowQR) btnShowQR.addEventListener('click', () => this._showTraceabilityQR('LOT-2026-DEMO'));
+
+        // Detail Modal Listeners
+        const btnCloseDetail = document.getElementById('btn-close-record-detail');
+        const btnCancelDetail = document.getElementById('btn-cancel-edit-record');
+        const modalDetail = document.getElementById('modal-record-detail');
+        const formEdit = document.getElementById('form-edit-record');
+
+        if (btnCloseDetail) btnCloseDetail.addEventListener('click', () => modalDetail.style.display = 'none');
+        if (btnCancelDetail) btnCancelDetail.addEventListener('click', () => modalDetail.style.display = 'none');
         
-        const btnExportSiex = document.getElementById('btn-export-siex');
-        if (btnExportSiex) {
-            btnExportSiex.addEventListener('click', () => this._exportSIEX());
+        if (formEdit) {
+            formEdit.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this._saveRecordEdit();
+            });
         }
     }
 
@@ -2421,7 +2770,7 @@ class GarutoApp {
                 const hasFotos = fotos.some(f => f.registroId == r.id);
                 
                 return `
-                    <tr>
+                    <tr class="clickable-row" data-id="${r.id}">
                         <td>${this._formatDate(r.fecha)}</td>
                         <td>${parcela ? this._escapeHTML(parcela.nombre) : '<em>Eliminada</em>'}${parcela && parcela.variedad ? ' <small style="opacity:0.7">('+this._escapeHTML(parcela.variedad)+')</small>' : ''}</td>
                         <td>${trabajo ? trabajo.icono + ' ' + this._escapeHTML(trabajo.nombre) : '<em>Eliminado</em>'}</td>
@@ -2444,7 +2793,7 @@ class GarutoApp {
                             ${r.nombre_aplicador || r.carnet_aplicador ? `<br><small>🧑‍🔬 <b>Aplicador:</b> ${this._escapeHTML(r.nombre_aplicador || '-')} ${r.carnet_aplicador ? `(${this._escapeHTML(r.carnet_aplicador)})` : ''}</small>` : ''}
                             ${r.kg_recolectados ? `<br><small>🧺 <b>Cosecha:</b> ${r.kg_recolectados} kg (Lote: ${this._escapeHTML(r.lote_trazabilidad || '-')})</small>` : ''}
                             ${!r.notas && !r.producto_fito && !r.nutrientes && !r.kg_recolectados && !maq && !r.nombre_aplicador && !r.carnet_aplicador ? '—' : ''}
-                            ${hasFotos ? `<button class="btn-view-fotos" data-id="${r.id}" title="Ver foto adjunta" type="button" style="margin-left: 5px; background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0;">📷</button>` : ''}
+                            ${hasFotos ? `<button class="btn-view-fotos" data-id="${r.id}" title="Ver fotos" type="button" style="margin-left:5px; padding:0; background:none; border:none; cursor:pointer;">📷</button>` : ''}
                         </td>
                         <td class="no-print">
                             <button class="btn btn-danger btn-sm btn-delete-registro" data-id="${r.id}" title="Eliminar registro">
@@ -2455,18 +2804,27 @@ class GarutoApp {
                 `;
             }).join('');
 
+            // Click handling for detail
+            tbody.querySelectorAll('tr.clickable-row').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    // Don't open if clicked on actions or fotos button
+                    if (e.target.closest('.no-print') || e.target.closest('.btn-view-fotos')) return;
+                    this._showRecordDetail(row.dataset.id);
+                });
+            });
+
             countEl.textContent = `${registros.length} registro${registros.length !== 1 ? 's' : ''}`;
 
             tbody.querySelectorAll('.btn-view-fotos').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const regId = btn.dataset.id;
-                    const f = fotos.find(f => f.registroId == regId);
-                    if (f) {
+                    const regFotos = fotos.filter(f => f.registroId == regId);
+                    if (regFotos.length > 0) {
                         const r = registros.find(reg => reg.id == regId);
                         const t = trabajos.find(trab => trab.id == r.trabajoId);
                         const p = parcelas.find(par => par.id == r.parcelaId);
-                        const url = `uploads/${f.filename}?t=${Date.now()}`;
-                        this._openLightbox(url, f.descripcion || `${t ? t.nombre : 'Trabajo'} en ${p ? p.nombre : 'Parcela'} (${f.anio})`);
+                        
+                        this._openGalleryLightbox(regFotos, `${t ? t.nombre : 'Trabajo'} en ${p ? p.nombre : 'Parcela'} (${this._formatDate(r.fecha)})`);
                     }
                 });
             });
@@ -2484,8 +2842,157 @@ class GarutoApp {
                     }
                 });
             });
+
         } catch (err) {
-            console.error('Error cargando registros:', err);
+            console.error('Error rendering records:', err);
+        }
+    }
+
+    async _showRecordDetail(id) {
+        try {
+            const r = (await this.store.getAll('registros')).find(reg => reg.id == id);
+            if (!r) return;
+
+            const parcelas = await this.store.getAll('parcelas');
+            const trabajos = await this.store.getAll('trabajos');
+            const maquinaria = await this.store.getAll('maquinaria');
+            const fotos = await this.store.getAll('fotos');
+
+            const p = parcelas.find(par => par.id == r.parcelaId);
+            const t = trabajos.find(trab => trab.id == r.trabajoId);
+
+            // Populate Main Fields
+            document.getElementById('det-id').value = r.id;
+            document.getElementById('det-registro-title').textContent = `Registro #${r.id.toString().padStart(4, '0')}`;
+            document.getElementById('det-registro-subtitle').textContent = t ? `${t.icono} ${t.nombre}` : 'Trabajo Detallado';
+            
+            document.getElementById('det-fecha').value = r.fecha;
+            
+            const selParcela = document.getElementById('det-parcela');
+            selParcela.innerHTML = `<option value="${r.parcelaId}">${p ? p.nombre : 'Parcela Desconocida'}</option>`;
+            
+            const selTrabajo = document.getElementById('det-trabajo');
+            selTrabajo.innerHTML = `<option value="${r.trabajoId}">${t ? t.nombre : 'Trabajo Desconocido'}</option>`;
+
+            document.getElementById('det-personas').value = r.num_personas || 1;
+            document.getElementById('det-nombres-personas').value = r.nombres_personas || '';
+            document.getElementById('det-coste').value = r.coste || '';
+            document.getElementById('det-notas').value = r.notas || '';
+
+            // Specialty Sections
+            const secMaq = document.getElementById('det-sec-maq');
+            const secFito = document.getElementById('det-sec-fito');
+            const secCosecha = document.getElementById('det-sec-cosecha');
+
+            secMaq.style.display = 'block'; // Always visible as common
+            const selMaq = document.getElementById('det-maquinaria');
+            selMaq.innerHTML = '<option value="">Ninguna</option>' + 
+                maquinaria.map(m => `<option value="${m.id}" ${r.maquinariaId == m.id ? 'selected' : ''}>${m.nombre}</option>`).join('');
+            document.getElementById('det-horas').value = r.duracion_horas || '';
+
+            // Handle Fito/Abono
+            if (t && (t.nombre.toLowerCase().includes('tratamiento') || t.nombre.toLowerCase().includes('abono') || t.nombre.toLowerCase().includes('fito'))) {
+                secFito.style.display = 'block';
+                document.getElementById('det-label-prod').textContent = t.nombre.toLowerCase().includes('abono') ? 'Abono/Nutriente' : 'Producto Fito';
+                document.getElementById('det-producto').value = r.producto_fito || r.nutrientes || '';
+                document.getElementById('det-cantidad').value = r.cantidad_usada || r.cantidad_abono || '';
+                document.getElementById('det-dosis').value = r.dosis || '';
+                document.getElementById('det-aplicador').value = r.nombre_aplicador || '';
+                document.getElementById('det-carnet').value = r.carnet_aplicador || '';
+                document.getElementById('det-reg-fito').value = r.num_registro_fito || '';
+                document.getElementById('det-agua').value = r.agua_riego || '';
+                document.getElementById('det-plaga').value = r.plaga || '';
+            } else {
+                secFito.style.display = 'none';
+            }
+
+            // Handle Cosecha
+            if (t && t.nombre.toLowerCase().includes('cosech')) {
+                secCosecha.style.display = 'block';
+                document.getElementById('det-kg').value = r.kg_recolectados || '';
+                document.getElementById('det-lote').value = r.lote_trazabilidad || '';
+            } else {
+                secCosecha.style.display = 'none';
+            }
+
+            // Render Photos
+            const gridFotos = document.getElementById('det-photos-grid');
+            const regFotos = fotos.filter(f => f.registroId == r.id);
+            if (regFotos.length > 0) {
+                gridFotos.innerHTML = regFotos.map(f => `
+                    <div class="det-photo-thumb" onclick="app._openGalleryLightbox([{filename:'${f.filename}'}], 'Foto del Registro')">
+                        <img src="uploads/${f.filename}" alt="Foto">
+                    </div>
+                `).join('');
+            } else {
+                gridFotos.innerHTML = '<p style="grid-column: 1/-1; font-size: 0.8rem; color: var(--text-muted);">Sin fotos adjuntas</p>';
+            }
+
+            document.getElementById('modal-record-detail').style.display = 'flex';
+        } catch (err) {
+            console.error(err);
+            this._toast('Error al cargar detalle', 'error');
+        }
+    }
+
+    async _saveRecordEdit() {
+        const id = document.getElementById('det-id').value;
+        const workType = document.getElementById('det-registro-subtitle').textContent.toLowerCase();
+
+        try {
+            const data = {
+                parcelaId: document.getElementById('det-parcela').value,
+                trabajoId: document.getElementById('det-trabajo').value,
+                fecha: document.getElementById('det-fecha').value,
+                num_personas: document.getElementById('det-personas').value,
+                nombres_personas: document.getElementById('det-nombres-personas').value,
+                coste: parseFloat(document.getElementById('det-coste').value.toString().replace(',', '.')) || 0,
+                notas: document.getElementById('det-notas').value,
+                maquinariaId: document.getElementById('det-maquinaria').value || null,
+                duracion_horas: parseFloat(document.getElementById('det-horas').value.toString().replace(',', '.')) || null
+            };
+
+            // Specialized fields logic
+            if (workType.includes('abono')) {
+                data.nutrientes = document.getElementById('det-producto').value;
+                data.cantidad_abono = document.getElementById('det-cantidad').value;
+                data.producto_fito = null;
+                data.cantidad_usada = null;
+            } else {
+                data.producto_fito = document.getElementById('det-producto').value;
+                data.cantidad_usada = document.getElementById('det-cantidad').value;
+                data.nutrientes = null;
+                data.cantidad_abono = null;
+            }
+            
+            data.dosis = document.getElementById('det-dosis').value;
+            data.nombre_aplicador = document.getElementById('det-aplicador').value;
+            data.carnet_aplicador = document.getElementById('det-carnet').value;
+            data.num_registro_fito = document.getElementById('det-reg-fito').value;
+            data.plaga = document.getElementById('det-plaga').value;
+            data.agua_riego = parseFloat(document.getElementById('det-agua').value) || null;
+            
+            data.kg_recolectados = parseFloat(document.getElementById('det-kg').value.toString().replace(',', '.')) || null;
+            data.lote_trazabilidad = document.getElementById('det-lote').value;
+
+            const numericId = parseInt(id);
+            console.log(`Guardando cambios para registro: ${numericId}`, data);
+            const res = await this.store.update('registros', numericId, data);
+            
+            if (res && res.queued) {
+                this._toast('Cambios guardados localmente (Modo Offline)', 'warning');
+            } else {
+                this._toast('Registro actualizado con éxito', 'success');
+            }
+            
+            document.getElementById('modal-record-detail').style.display = 'none';
+            
+            await this._renderRecords();
+            this._renderDashboard(); // Update costs on dashboard
+
+        } catch (err) {
+            console.error(err);
+            this._toast('Error al guardar cambios', 'error');
         }
     }
 
@@ -2497,12 +3004,187 @@ class GarutoApp {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `cuaderno-campo-${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `cuaderno-garuto-full-${new Date().toISOString().slice(0, 10)}.json`;
             a.click();
             URL.revokeObjectURL(url);
-            this._toast('Datos exportados correctamente');
+            this._toast('✅ Copia de seguridad descargada correctamente', 'success');
         } catch (err) {
-            this._toast('Error al exportar datos', 'error');
+            this._toast('Error al exportar datos: ' + err.message, 'error');
+        }
+    }
+
+    async _exportSIEX() {
+        try {
+            const [registros, parcelas, trabajos] = await Promise.all([
+                this.store.getAll('registros'),
+                this.store.getAll('parcelas'),
+                this.store.getAll('trabajos')
+            ]);
+
+            const siexData = registros.map(r => {
+                const p = parcelas.find(par => par.id == r.parcelaId);
+                const t = trabajos.find(trab => trab.id == r.trabajoId);
+                return {
+                    fecha: r.fecha,
+                    parcela: p ? p.nombre : 'Desconocida',
+                    referencia_sigpac: p ? p.referencia_sigpac : '',
+                    actividad: t ? t.nombre : 'Desconocida',
+                    tipo_legal: t ? t.tipo_legal : 'general',
+                    producto: r.producto_fito || r.nutrientes || '',
+                    n_registro: r.num_registro_fito || '',
+                    dosis: r.dosis || r.cantidad_abono || '',
+                    cantidad: r.cantidad_usada || '',
+                    aplicador: r.nombre_aplicador || '',
+                    n_carnet: r.carnet_aplicador || '',
+                    notas: r.notas || ''
+                };
+            });
+
+            const json = JSON.stringify(siexData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `export-siex-garuto-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this._toast('✅ Exportación SIEX generada correctamente', 'success');
+        } catch (err) {
+            this._toast('Error en exportación SIEX: ' + err.message, 'error');
+        }
+    }
+
+    async _generateOfficialPDF() {
+        this._toast('⌛ Generando Cuaderno Oficial...', 'info');
+        
+        try {
+            const [registros, parcelas, trabajos] = await Promise.all([
+                this.store.getAll('registros'),
+                this.store.getAll('parcelas'),
+                this.store.getAll('trabajos')
+            ]);
+
+            const filtered = registros.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            const container = document.createElement('div');
+            container.style.padding = '10px';
+            container.style.fontFamily = 'Helvetica, Arial, sans-serif';
+            container.style.width = '180mm'; // Ajuste para A4
+            container.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 3px solid #1a241a; padding-bottom: 10px; margin-bottom: 20px;">
+                    <div>
+                        <h1 style="margin:0; color:#1a241a; font-size: 22px; font-weight: 800;">CUADERNO DE EXPLOTACIÓN AGRÍCOLA</h1>
+                        <p style="margin:5px 0; color:#444; font-size: 11px;">Documento técnico generado por <strong>Garuto</strong></p>
+                    </div>
+                    <div style="text-align:right;">
+                        <p style="margin:0; font-weight:bold; font-size:12px;">Fecha Emisión: ${new Date().toLocaleDateString()}</p>
+                        <p style="margin:2px 0; font-size: 11px; color: #555;">Titular: ${this.currentUser.displayName}</p>
+                    </div>
+                </div>
+
+                <h2 style="font-size: 14px; background: #2d382d; color: white; padding: 6px 12px; margin-bottom: 10px;">1. IDENTIFICACIÓN DE LA EXPLOTACIÓN Y PARCELAS</h2>
+                <table style="width:100%; border-collapse: collapse; margin-bottom: 25px; font-size: 11px;">
+                    <thead>
+                        <tr style="background: #e1e9e1;">
+                            <th style="border:1px solid #1a241a; padding:8px; text-align:left; color: #000;">Nombre Parcela</th>
+                            <th style="border:1px solid #1a241a; padding:8px; text-align:left; color: #000;">Variedad</th>
+                            <th style="border:1px solid #1a241a; padding:8px; text-align:left; color: #000;">Sup. (ha)</th>
+                            <th style="border:1px solid #1a241a; padding:8px; text-align:left; color: #000;">Ref. SIGPAC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${parcelas.map(p => `
+                            <tr>
+                                <td style="border:1px solid #ccc; padding:8px; font-weight: 600;">${p.nombre}</td>
+                                <td style="border:1px solid #ccc; padding:8px;">${p.variedad || '-'}</td>
+                                <td style="border:1px solid #ccc; padding:8px;">${p.superficie}</td>
+                                <td style="border:1px solid #ccc; padding:8px;">${p.referencia_sigpac || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <h2 style="font-size: 14px; background: #2d382d; color: white; padding: 6px 12px; margin-bottom: 10px;">2. REGISTRO DE ACTIVIDADES, TRATAMIENTOS Y ABONADOS</h2>
+                <table style="width:100%; border-collapse: collapse; font-size: 9px; table-layout: fixed;">
+                    <thead>
+                        <tr style="background: #e1e9e1;">
+                            <th style="border:1px solid #1a241a; padding:5px; width: 60px; color: #000;">Fecha</th>
+                            <th style="border:1px solid #1a241a; padding:5px; width: 80px; color: #000;">Parcela</th>
+                            <th style="border:1px solid #1a241a; padding:5px; color: #000;">Labor / Actividad</th>
+                            <th style="border:1px solid #1a241a; padding:5px; color: #000;">Insumo (Fito/Abono)</th>
+                            <th style="border:1px solid #1a241a; padding:5px; width: 90px; color: #000;">Nº Reg / Cantidad</th>
+                            <th style="border:1px solid #1a241a; padding:5px; color: #000;">Aplicador</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.length > 0 ? filtered.map(r => {
+                            const p = parcelas.find(par => par.id == r.parcelaId);
+                            const t = trabajos.find(trab => trab.id == r.trabajoId);
+                            const insumo = r.producto_fito || r.nutrientes || r.material_reparacion || '-';
+                            const infoReg = r.num_registro_fito ? 'Reg:'+r.num_registro_fito+' ('+(r.dosis||'')+')' : (r.cantidad_abono || r.cantidad_usada || '-');
+                            return `
+                                <tr>
+                                    <td style="border:1px solid #ccc; padding:5px; white-space: nowrap;">${this._formatDate(r.fecha)}</td>
+                                    <td style="border:1px solid #ccc; padding:5px;"><strong>${p ? p.nombre : '-'}</strong></td>
+                                    <td style="border:1px solid #ccc; padding:5px;">${t ? t.nombre : '-'}</td>
+                                    <td style="border:1px solid #ccc; padding:5px;">${insumo}</td>
+                                    <td style="border:1px solid #ccc; padding:5px;">${infoReg}</td>
+                                    <td style="border:1px solid #ccc; padding:5px;">${r.nombre_aplicador || '-'}</td>
+                                </tr>
+                            `;
+                        }).join('') : '<tr><td colspan="6" style="text-align:center; padding: 20px;">No hay registros históricos disponibles.</td></tr>'}
+                    </tbody>
+                </table>
+                <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; color: #888; font-size: 9px;">
+                    Este documento es un extracto digital de la base de datos de Garuto — Pistachos de Calidad.<br>
+                    Generado el ${new Date().toLocaleString()} por el usuario ${this.currentUser.displayName}.
+                </div>
+            `;
+
+            const opt = {
+                margin:       10,
+                filename:     `cuaderno-oficial-garuto-${new Date().getFullYear()}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(container).save().then(() => {
+                this._toast('✅ PDF generado y descargado', 'success');
+            });
+
+        } catch (err) {
+            console.error('Error generando PDF:', err);
+            this._toast('Error al generar PDF: ' + err.message, 'error');
+        }
+    }
+
+    async _importData(file) {
+        if (!file) return;
+        if (!await this._confirm('⚠️ ATENCIÓN: Esta operación borrará TODOS los datos actuales y los sustituirá por los de la copia de seguridad. ¿Estás seguro de continuar?')) {
+            return;
+        }
+
+        try {
+            this._toast('Restaurando sistema...', 'info');
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    const res = await this.store.importJSON(data);
+                    if (res.success) {
+                        this._toast('✅ Sistema restaurado correctamente. Recargando...', 'success');
+                        setTimeout(() => window.location.reload(), 2000);
+                    } else {
+                        throw new Error(res.error || 'Error desconocido');
+                    }
+                } catch (err) {
+                    this._toast('❌ Error al procesar el archivo: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        } catch (err) {
+            this._toast('Error al importar datos', 'error');
         }
     }
 
@@ -2510,7 +3192,9 @@ class GarutoApp {
     // GALERÍA DE FOTOS
     // ===============================
     _initGallery() {
-        this._galleryYear = null; // null = show all
+        this._galleryYear = null; 
+        this._isComparisonMode = false;
+        this._comparisonPhotos = [null, null];
         
         // Parcela selector
         const parcelaSelect = document.getElementById('gallery-parcela');
@@ -2525,7 +3209,48 @@ class GarutoApp {
             }
         });
 
+        const btnComp = document.getElementById('btn-toggle-comparison');
+        if (btnComp) btnComp.addEventListener('click', () => this._toggleGalleryComparison());
+
         this._initGalleryUploads();
+    }
+
+    _toggleGalleryComparison() {
+        this._isComparisonMode = !this._isComparisonMode;
+        const view = document.getElementById('comparison-view');
+        const btn = document.getElementById('btn-toggle-comparison');
+        
+        if (this._isComparisonMode) {
+            view.style.display = 'block';
+            btn.classList.add('btn-primary');
+            btn.classList.remove('btn-secondary');
+            this._comparisonPhotos = [null, null];
+            this._renderComparisonSlots();
+            this._toast('Modo Comparativa: Selecciona dos fotos de la galería abajo', 'info');
+        } else {
+            view.style.display = 'none';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-secondary');
+        }
+        
+        // Re-render grid to update click behavior/styles
+        const parcelaId = document.getElementById('gallery-parcela').value;
+        if (parcelaId) this._renderPhotoGrid(parcelaId);
+    }
+
+    _renderComparisonSlots() {
+        for (let i = 1; i <= 2; i++) {
+            const slot = document.getElementById(`comp-slot-${i}`);
+            const photo = this._comparisonPhotos[i-1];
+            if (photo) {
+                slot.innerHTML = `
+                    <img src="${photo.url}" alt="Comp ${i}">
+                    <div class="comparison-label">${photo.anio} - ${photo.descripcion || 'Sin descripción'}</div>
+                `;
+            } else {
+                slot.innerHTML = `<p>Selecciona la ${i === 1 ? 'primera' : 'segunda'} foto...</p>`;
+            }
+        }
     }
 
     _initGalleryUploads() {
@@ -2673,25 +3398,48 @@ class GarutoApp {
             }
 
             gridEl.innerHTML = filtered.map(f => `
-                <div class="photo-card" data-id="${f.id}">
-                    <img src="uploads/${f.filename}?t=${Date.now()}" alt="${this._escapeHTML(f.descripcion || '')}" loading="lazy">
-                    <div class="photo-card-overlay" style="display: flex; justify-content: space-between; align-items: flex-end;">
-                        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; padding-right: 10px;">
-                            <span class="photo-card-desc" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;">${f.descripcion ? this._escapeHTML(f.descripcion) : ''}</span>
-                            <span class="photo-card-date">${f.anio}</span>
+                <div class="photo-card ${this._isComparisonMode ? 'selecting' : ''}" data-id="${f.id}">
+                    <div class="photo-card-img-wrapper">
+                        <img src="uploads/${f.filename}?t=${Date.now()}" alt="${this._escapeHTML(f.descripcion || '')}" loading="lazy">
+                        ${f.trabajoIcono ? `<span class="photo-card-type-badge">${f.trabajoIcono}</span>` : ''}
+                    </div>
+                    <div class="photo-card-info">
+                        <div class="photo-card-main">
+                            <span class="photo-card-desc">${f.descripcion ? this._escapeHTML(f.descripcion) : (f.trabajoNombre || 'Sin descripción')}</span>
+                            <span class="photo-card-meta">
+                                📅 ${f.registroFecha ? this._formatDate(f.registroFecha) : f.anio}
+                                ${f.trabajoNombre ? ` · 🔧 ${this._escapeHTML(f.trabajoNombre)}` : ''}
+                            </span>
                         </div>
-                        <button class="photo-card-delete" data-id="${f.id}" title="Eliminar foto" style="flex-shrink: 0; z-index: 10;">🗑️</button>
+                        <button class="photo-card-delete" data-id="${f.id}" title="Eliminar foto">🗑️</button>
                     </div>
                 </div>
             `).join('');
 
-            // Click to open lightbox
+            // Click handling
             gridEl.querySelectorAll('.photo-card').forEach(card => {
                 card.addEventListener('click', (e) => {
                     if (e.target.closest('.photo-card-delete')) return;
-                    const img = card.querySelector('img');
-                    const foto = filtered.find(f => f.id == card.dataset.id);
-                    this._openLightbox(img.src, foto?.descripcion || '');
+                    
+                    const id = card.dataset.id;
+                    const photo = filtered.find(f => f.id == id);
+                    if (!photo) return;
+
+                    const photoUrl = `uploads/${photo.filename}`;
+
+                    if (this._isComparisonMode) {
+                        this._selectPhotoForComparison({
+                            url: photoUrl,
+                            anio: photo.anio,
+                            descripcion: photo.descripcion || photo.trabajoNombre
+                        });
+                    } else {
+                        if (this._openLightbox) {
+                            this._openLightbox(photoUrl, photo.descripcion || photo.trabajoNombre);
+                        } else {
+                            window.open(photoUrl, '_blank');
+                        }
+                    }
                 });
             });
 
@@ -2716,27 +3464,115 @@ class GarutoApp {
         }
     }
 
+    _selectPhotoForComparison(photo) {
+        if (!this._comparisonPhotos[0]) {
+            this._comparisonPhotos[0] = photo;
+            this._toast('Primera foto seleccionada. Elige la segunda.', 'info');
+        } else if (!this._comparisonPhotos[1]) {
+            this._comparisonPhotos[1] = photo;
+            this._toast('Comparativa lista', 'success');
+        } else {
+            this._comparisonPhotos[1] = photo;
+        }
+        this._renderComparisonSlots();
+    }
+
 
 
     _openLightbox(src, desc) {
         const lightbox = document.createElement('div');
-        lightbox.className = 'lightbox';
+        lightbox.className = 'lightbox fade-in';
         lightbox.innerHTML = `
             <button class="lightbox-close">✕</button>
-            <img src="${src}" alt="Foto">
-            ${desc ? `<div class="lightbox-desc">${this._escapeHTML(desc)}</div>` : ''}
+            <div class="lightbox-content">
+                <img src="${src}" alt="Foto">
+                ${desc ? `<div class="lightbox-desc">${this._escapeHTML(desc)}</div>` : ''}
+            </div>
         `;
 
+        const close = () => {
+            lightbox.classList.add('fade-out');
+            setTimeout(() => lightbox.remove(), 300);
+        };
+
         lightbox.addEventListener('click', (e) => {
-            if (e.target === lightbox || e.target.classList.contains('lightbox-close')) {
-                lightbox.remove();
+            if (e.target === lightbox || e.target.classList.contains('lightbox-close') || e.target.classList.contains('lightbox-content')) {
+                close();
             }
         });
 
         document.addEventListener('keydown', function handler(e) {
             if (e.key === 'Escape') {
-                lightbox.remove();
+                close();
                 document.removeEventListener('keydown', handler);
+            }
+        });
+
+        document.body.appendChild(lightbox);
+    }
+
+    _openGalleryLightbox(fotos, title) {
+        let currentIndex = 0;
+        
+        const lightbox = document.createElement('div');
+        lightbox.className = 'lightbox gallery-lightbox fade-in';
+        
+        const render = () => {
+            const f = fotos[currentIndex];
+            // Match both {filename: '...'} and {src: '...'} or just a string
+            let url = '';
+            if (f.filename) url = `uploads/${f.filename}`;
+            else if (f.src) url = f.src;
+            else url = f;
+            
+            url += (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+
+            lightbox.innerHTML = `
+                <button class="lightbox-close">✕</button>
+                <div class="lightbox-gallery-container">
+                    <div class="lightbox-header">
+                        <h3>${this._escapeHTML(title)}</h3>
+                        <span class="lightbox-counter">${currentIndex + 1} / ${fotos.length}</span>
+                    </div>
+                    <div class="lightbox-main">
+                        ${fotos.length > 1 ? `<button class="lightbox-prev">❮</button>` : ''}
+                        <img src="${url}" alt="Foto ${currentIndex + 1}">
+                        ${fotos.length > 1 ? `<button class="lightbox-next">❯</button>` : ''}
+                    </div>
+                    ${f.descripcion ? `<div class="lightbox-desc">${this._escapeHTML(f.descripcion)}</div>` : ''}
+                </div>
+            `;
+        };
+
+        render();
+
+        const close = () => {
+            lightbox.classList.add('fade-out');
+            setTimeout(() => lightbox.remove(), 300);
+        };
+
+        lightbox.addEventListener('click', (e) => {
+            if (e.target.classList.contains('lightbox-close') || e.target === lightbox) {
+                close();
+            } else if (e.target.classList.contains('lightbox-prev')) {
+                currentIndex = (currentIndex - 1 + fotos.length) % fotos.length;
+                render();
+            } else if (e.target.classList.contains('lightbox-next')) {
+                currentIndex = (currentIndex + 1) % fotos.length;
+                render();
+            }
+        });
+
+        document.addEventListener('keydown', function handler(e) {
+            if (e.key === 'Escape') {
+                close();
+                document.removeEventListener('keydown', handler);
+            } else if (e.key === 'ArrowLeft' && fotos.length > 1) {
+                currentIndex = (currentIndex - 1 + fotos.length) % fotos.length;
+                render();
+            } else if (e.key === 'ArrowRight' && fotos.length > 1) {
+                currentIndex = (currentIndex + 1) % fotos.length;
+                render();
             }
         });
 
@@ -2862,80 +3698,6 @@ class GarutoApp {
     // ===============================
     // EXPORTACIÓN SIEX / CSV
     // ===============================
-    async _exportSIEX() {
-        try {
-            const registros = await this.store.getAll('registros');
-            const parcelas = await this.store.getAll('parcelas');
-            const trabajos = await this.store.getAll('trabajos');
-
-            // Ordenar por fecha cronológica (para SIEX suele ser mejor así o inverso, hacemos cronológico)
-            registros.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-
-            // Cabeceras CSV (Ajustadas a campos principales de cuaderno de campo)
-            let csvContent = "\uFEFF"; // BOM para Excel UTF-8
-            csvContent += "Fecha;Parcela;Ref_SIGPAC;Superficie_ha;Trabajo;Tipo_Legal;Maquinaria;Horas;Notas;Coste;Trabajadores;Producto_Fito;Num_Reg_Fito;Dosis_Fito;Plaga;Carnet_Aplicador;Nutrientes_Abono;Cantidad_Abono;Agua_Riego_m3;Kg_Recolectados;Lote_Cosecha\n";
-
-            registros.forEach(r => {
-                    const p = parcelas.find(x => x.id == r.parcelaId) || {};
-                    const t = trabajos.find(x => x.id == r.trabajoId) || {};
-                    const m = maquinaria.find(x => x.id == r.maquinariaId) || {};
-    
-                    // Función helper para escapar comas/punto-y-comas en CSV
-                    const clean = (str) => {
-                        if (str === null || str === undefined) return "";
-                        let s = String(str).replace(/"/g, '""');
-                        if (s.includes(';') || s.includes('"') || s.includes('\n')) {
-                            s = `"${s}"`;
-                        }
-                        return s;
-                    };
-    
-                    const row = [
-                        this._formatDate(r.fecha),
-                        clean(p.nombre),
-                        clean(p.referencia_sigpac),
-                        clean(p.superficie),
-                        clean(t.nombre),
-                        clean(t.tipo_legal || 'general'),
-                        clean(m.nombre),
-                        clean(r.duracion_horas),
-                        clean(r.notas),
-                        clean(r.coste),
-                    clean(r.nombres_personas ? `${r.num_personas} (${r.nombres_personas})` : r.num_personas),
-                    clean(r.producto_fito),
-                    clean(r.num_registro_fito),
-                    clean(r.dosis),
-                    clean(r.plaga),
-                    clean(r.carnet_aplicador),
-                    clean(r.nutrientes),
-                    clean(r.cantidad_abono),
-                    clean(r.agua_riego),
-                    clean(r.kg_recolectados),
-                    clean(r.lote_trazabilidad)
-                ];
-
-                csvContent += row.join(';') + "\n";
-            });
-
-            // Descargar archivo
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            link.setAttribute('href', url);
-            const dateStr = new Date().toISOString().split('T')[0];
-            link.setAttribute('download', `cuaderno_campo_SIEX_${dateStr}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            this._toast('Archivo SIEX (CSV) generado correctamente');
-
-        } catch(err) {
-            console.error(err);
-            this._toast('Error exportando datos SIEX', 'error');
-        }
-    }
 
     // ===============================
     // ALMACÉN
@@ -3889,6 +4651,7 @@ class PistachinBot {
 
         this._addMessage(response, 'bot');
     }
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {

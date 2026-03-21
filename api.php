@@ -744,6 +744,44 @@ switch ($action) {
                         ]);
                     }
                 }
+            } elseif ($collection === 'registros') {
+                $maqId = isset($input['maquinariaId']) ? intval($input['maquinariaId']) : null;
+                $invId = isset($input['inventarioId']) ? intval($input['inventarioId']) : null;
+                
+                $stmt = $db->prepare("UPDATE registros SET 
+                    parcelaId = ?, trabajoId = ?, maquinariaId = ?, fecha = ?, notas = ?, 
+                    coste = ?, num_personas = ?, nombres_personas = ?, duracion_horas = ?, 
+                    inventarioId = ?, cantidad_usada = ?, producto_fito = ?, 
+                    num_registro_fito = ?, dosis = ?, plaga = ?, carnet_aplicador = ?, 
+                    nombre_aplicador = ?, nutrientes = ?, cantidad_abono = ?, 
+                    agua_riego = ?, kg_recolectados = ?, lote_trazabilidad = ? 
+                    WHERE id = ?");
+                
+                $stmt->execute([
+                    intval($input['parcelaId']),
+                    intval($input['trabajoId']),
+                    $maqId,
+                    $input['fecha'] ?? date('Y-m-d'),
+                    $input['notas'] ?? '',
+                    isset($input['coste']) ? floatval($input['coste']) : 0.00,
+                    isset($input['num_personas']) ? intval($input['num_personas']) : 1,
+                    $input['nombres_personas'] ?? null,
+                    isset($input['duracion_horas']) ? floatval($input['duracion_horas']) : null,
+                    $invId,
+                    isset($input['cantidad_usada']) ? floatval($input['cantidad_usada']) : null,
+                    $input['producto_fito'] ?? null,
+                    $input['num_registro_fito'] ?? null,
+                    $input['dosis'] ?? null,
+                    $input['plaga'] ?? null,
+                    $input['carnet_aplicador'] ?? null,
+                    $input['nombre_aplicador'] ?? null,
+                    $input['nutrientes'] ?? null,
+                    $input['cantidad_abono'] ?? null,
+                    isset($input['agua_riego']) ? floatval($input['agua_riego']) : null,
+                    isset($input['kg_recolectados']) ? floatval($input['kg_recolectados']) : null,
+                    $input['lote_trazabilidad'] ?? null,
+                    $id
+                ]);
             }
 
             echo json_encode(['success' => true]);
@@ -958,7 +996,14 @@ switch ($action) {
     case 'getPhotos':
         $parcelaId = intval($_GET['parcelaId'] ?? 0);
         $db = getDB();
-        $stmt = $db->prepare("SELECT * FROM fotos WHERE parcelaId = ? ORDER BY anio DESC, createdAt DESC");
+        $stmt = $db->prepare("
+            SELECT f.*, r.fecha as registroFecha, t.nombre as trabajoNombre, t.icono as trabajoIcono
+            FROM fotos f
+            LEFT JOIN registros r ON f.registroId = r.id
+            LEFT JOIN trabajos t ON r.trabajoId = t.id
+            WHERE f.parcelaId = ?
+            ORDER BY f.anio DESC, f.createdAt DESC
+        ");
         $stmt->execute([$parcelaId]);
         echo json_encode($stmt->fetchAll());
         break;
@@ -980,24 +1025,67 @@ switch ($action) {
     // =====================
     case 'export':
         $db = getDB();
-        
-        // Evitamos errores si la tabla planing_progreso aún no se ha creado
-        $planingData = [];
-        try {
-            $planingData = $db->query("SELECT * FROM planing_progreso ORDER BY id")->fetchAll();
-        } catch (Exception $e) {
-            // Ignorar si la tabla no existe aún
+        $tables = ['parcelas', 'trabajos', 'registros', 'fotos', 'planing_progreso', 'inventario', 'maquinaria', 'documentacion', 'maquinaria_reparaciones', 'finanzas', 'cosechas_ventas'];
+        $data = [];
+        foreach ($tables as $table) {
+            try {
+                $stmt = $db->query("SELECT * FROM `$table` ORDER BY id");
+                $data[$table] = $stmt->fetchAll();
+            } catch (Exception $e) {
+                $data[$table] = []; // Silencioso si la tabla no existe
+            }
+        }
+        echo json_encode($data, JSON_PRETTY_PRINT);
+        break;
+
+    // =====================
+    // IMPORT (Restore)
+    // =====================
+    case 'import':
+        checkAdmin(); // Solo administradores pueden restaurar
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input || !is_array($input)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Datos de importación no válidos']);
+            exit;
         }
 
-        $data = [
-            'parcelas'         => $db->query("SELECT * FROM parcelas ORDER BY id")->fetchAll(),
-            'trabajos'         => $db->query("SELECT * FROM trabajos ORDER BY id")->fetchAll(),
-            'registros'        => $db->query("SELECT * FROM registros ORDER BY id")->fetchAll(),
-            'fotos'            => $db->query("SELECT * FROM fotos ORDER BY id")->fetchAll(),
-            'planing_progreso' => $planingData,
-            'documentacion'    => $db->query("SELECT * FROM documentacion ORDER BY id")->fetchAll()
-        ];
-        echo json_encode($data, JSON_PRETTY_PRINT);
+        $db = getDB();
+        $db->beginTransaction();
+        try {
+            $allowed = ['parcelas', 'trabajos', 'registros', 'fotos', 'planing_progreso', 'inventario', 'maquinaria', 'documentacion', 'maquinaria_reparaciones', 'finanzas', 'cosechas_ventas'];
+            
+            foreach ($input as $table => $rows) {
+                if (!in_array($table, $allowed)) continue;
+                
+                // Vaciar tabla
+                $db->exec("DELETE FROM `$table` shadow"); // "shadow" is to bypass some strict settings if any, but standard DELETE is fine
+                $db->exec("TRUNCATE TABLE `$table` "); 
+
+                if (empty($rows)) continue;
+
+                // Dinámicamente construir el INSERT
+                $columns = array_keys($rows[0]);
+                $colNames = implode('`, `', $columns);
+                $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+                $sql = "INSERT INTO `$table` (`$colNames`) VALUES ($placeholders)";
+                $stmt = $db->prepare($sql);
+
+                foreach ($rows as $row) {
+                    $values = [];
+                    foreach ($columns as $col) {
+                        $values[] = $row[$col];
+                    }
+                    $stmt->execute($values);
+                }
+            }
+            $db->commit();
+            echo json_encode(['success' => true, 'message' => 'Sistema restaurado correctamente']);
+        } catch (Exception $e) {
+            $db->rollBack();
+            http_response_code(500);
+            echo json_encode(['error' => 'Error durante la restauración: ' . $e->getMessage()]);
+        }
         break;
 
     // =====================

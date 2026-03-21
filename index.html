@@ -12,10 +12,10 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="nut.png">
-    
+
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2d382d">
@@ -24,19 +24,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <link rel="stylesheet" href="index.css?v=2026v2">
-    <!-- External Libraries (must load before app.js) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+    <script src="https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    
     <!-- App -->
-    <script src="app_v3.js?v=2026v3" defer></script>
+    <script src="app_v3.js?v=2026v4" defer></script>
 </head>
 
 <body>
     <!-- Script para forzar limpieza de Service Worker antiguo -->
     <script>
         if ('serviceWorker' in navigator && !localStorage.getItem('sw_cleaned_v2026v2')) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
                 registrations.forEach(r => r.unregister());
                 localStorage.setItem('sw_cleaned_v2026v2', '1');
             });
@@ -91,7 +96,7 @@
                     <h2>Garuto</h2>
                     <span class="sidebar-subtitle">Cuaderno de Campo Digital</span>
                     <div id="connection-badge" class="connection-badge online">
-                         <span class="dot"></span> <span class="label">Conectado</span>
+                        <span class="dot"></span> <span class="label">Conectado</span>
                     </div>
                 </div>
             </div>
@@ -134,8 +139,12 @@
                     <span class="nav-label">Trabajos</span>
                 </a>
                 <a href="#" class="nav-item" data-section="galeria" id="nav-galeria">
-                    <span class="nav-icon">📷</span>
+                    <span class="nav-icon">🖼️</span>
                     <span class="nav-label">Galería</span>
+                </a>
+                <a href="#" class="nav-item" data-section="mercado" id="nav-mercado">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-label">Mercado</span>
                 </a>
                 <a href="#" class="nav-item" data-section="planing" id="nav-planing">
                     <span class="nav-icon">📅</span>
@@ -146,7 +155,8 @@
             <div class="sidebar-footer">
                 <div class="user-info" id="user-info">
                     <div class="profile-card">
-                        <img src="https://ui-avatars.com/api/?name=Admin+Campo&background=a3d65e&color=141a0f" alt="Profile" class="profile-avatar">
+                        <img src="https://ui-avatars.com/api/?name=Admin+Campo&background=a3d65e&color=141a0f"
+                            alt="Profile" class="profile-avatar">
                         <div class="profile-info">
                             <span class="profile-name" id="user-display-name-sidebar">Usuario Campo</span>
                             <span class="profile-role">Administrador</span>
@@ -174,8 +184,9 @@
             </button>
             <h1 class="mobile-title">
                 <span class="mobile-logo-img">
-                    <img src="nut.png" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; vertical-align: middle;">
-                </span> 
+                    <img src="nut.png" alt="Logo"
+                        style="width: 100%; height: 100%; object-fit: contain; vertical-align: middle;">
+                </span>
                 Pistachos Garuto
             </h1>
             <div class="mobile-user-pill" id="mobile-user-pill">
@@ -197,6 +208,11 @@
                         <span class="date-label" id="dashboard-date">Cargando fecha...</span>
                         <h1 class="greeting-text">¡Buenos días, <span id="user-greeting-name">...</span>!</h1>
                     </div>
+                </div>
+                <!-- Capa de Acciones: Alertas + Insights -->
+                <div class="dashboard-action-layer" id="dashboard-action-layer">
+                    <div id="pest-alerts-container"></div>
+                    <div id="insights-container"></div>
                 </div>
                 <div class="stats-grid animate-fade-in-up stagger-1" id="stats-grid">
 
@@ -223,7 +239,7 @@
                             <span class="stat-premium-badge" id="saldo-badge">Disponible</span>
                         </div>
                     </div>
-                    
+
                     <div class="stat-premium-card" onclick="app._navigateTo('consultar')">
                         <span class="stat-premium-label">Actividades</span>
                         <div class="stat-premium-value">
@@ -244,6 +260,14 @@
                         <span class="stat-premium-label">Balance Anual</span>
                         <div class="stat-premium-value">
                             <span id="stat-money" class="skeleton">0 €</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-premium-card highlight-market" onclick="app._navigateTo('mercado')">
+                        <span class="stat-premium-label">Pistacho Kerman 📈</span>
+                        <div class="stat-premium-value">
+                            <span id="stat-precio-mercado">5.20 €</span>
+                            <span class="stat-premium-badge">Precio Lonja</span>
                         </div>
                     </div>
                 </div>
@@ -276,26 +300,48 @@
 
                     <div class="weather-grid" id="weather-grid">
                         <div class="weather-main">
-                            <div class="weather-icon" id="weather-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg></div>
+                            <div class="weather-icon" id="weather-icon"><svg viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" width="1em" height="1em">
+                                    <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>
+                                </svg></div>
                             <div class="weather-temp"><span id="weather-temp">--</span>°C</div>
                         </div>
                         <div class="weather-details">
                             <div class="weather-detail">
-                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path></svg></span>
+                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em"
+                                        height="1em">
+                                        <path
+                                            d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z">
+                                        </path>
+                                    </svg></span>
                                 <div class="wd-info">
                                     <span class="wd-label">Prob. Lluvia</span>
                                     <span class="wd-value" id="weather-rain">--%</span>
                                 </div>
                             </div>
                             <div class="weather-detail">
-                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12.8 19.6A2 2 0 1 0 14 16H2"></path><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"></path><path d="M9.8 4.4A2 2 0 1 1 11 8H2"></path></svg></span>
+                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em"
+                                        height="1em">
+                                        <path d="M12.8 19.6A2 2 0 1 0 14 16H2"></path>
+                                        <path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"></path>
+                                        <path d="M9.8 4.4A2 2 0 1 1 11 8H2"></path>
+                                    </svg></span>
                                 <div class="wd-info">
                                     <span class="wd-label">Viento</span>
                                     <span class="wd-value" id="weather-wind">-- km/h</span>
                                 </div>
                             </div>
                             <div class="weather-detail">
-                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em" height="1em"><path d="M12 2v2M4.93 4.93l1.41 1.41M2 12h2M4.93 19.07l1.41-1.41M12 20v2M17.66 17.66l1.41 1.41M20 12h2M17.66 6.34l1.41-1.41"></path></svg></span>
+                                <span class="wd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="1em"
+                                        height="1em">
+                                        <path
+                                            d="M12 2v2M4.93 4.93l1.41 1.41M2 12h2M4.93 19.07l1.41-1.41M12 20v2M17.66 17.66l1.41 1.41M20 12h2M17.66 6.34l1.41-1.41">
+                                        </path>
+                                    </svg></span>
                                 <div class="wd-info">
                                     <span class="wd-label">Humedad</span>
                                     <span class="wd-value" id="weather-humidity">--%</span>
@@ -324,10 +370,10 @@
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- 7-Day Forecast Container -->
                     <div class="weather-week-forecast" id="weather-week-forecast"></div>
-                    
+
                     <div class="weather-advice" id="weather-advice">
                         <!-- Advice generated by JS based on weather conditions -->
                     </div>
@@ -337,7 +383,8 @@
                     <div class="card card-recent animate-fade-in-up stagger-3">
                         <div class="card-header-flex">
                             <h3>🕐 Últimos Registros</h3>
-                            <button class="btn btn-secondary btn-sm" onclick="app._navigateTo('consultar')">Ver todos</button>
+                            <button class="btn btn-secondary btn-sm" onclick="app._navigateTo('consultar')">Ver
+                                todos</button>
                         </div>
 
                         <div id="recent-records" class="recent-list">
@@ -383,7 +430,8 @@
                         <form id="form-parcela" class="inline-form">
                             <div class="form-group">
                                 <label for="parcela-nombre">Nombre de la parcela</label>
-                                <input type="text" id="parcela-nombre" placeholder="Ej: Parcela Norte - Los Olivos" required>
+                                <input type="text" id="parcela-nombre" placeholder="Ej: Parcela Norte - Los Olivos"
+                                    required>
                             </div>
                             <div class="form-group">
                                 <label for="parcela-variedad">Variedad Principal</label>
@@ -424,23 +472,27 @@
                                 <input type="number" id="parcela-lng" placeholder="Ej: -3.562" step="any">
                             </div>
                             <div class="form-group flex-end">
-                                 <button type="button" class="btn btn-secondary btn-full" id="btn-detect-pos" title="Detectar mi ubicación actual">
+                                <button type="button" class="btn btn-secondary btn-full" id="btn-detect-pos"
+                                    title="Detectar mi ubicación actual">
                                     📍 Detectar Mi Ubicación
-                                 </button>
+                                </button>
                             </div>
                             <button type="submit" class="btn btn-primary" id="btn-save-parcela">
                                 <span>🌱</span> Añadir Parcela
                             </button>
-                            <button type="button" class="btn btn-ghost" id="btn-cancel-edit-parcela" onclick="app._cancelEditParcela()" hidden>
+                            <button type="button" class="btn btn-ghost" id="btn-cancel-edit-parcela"
+                                onclick="app._cancelEditParcela()" hidden>
                                 ✖ Cancelar Edición
                             </button>
                         </form>
                     </div>
                 </div>
                 <div class="card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+                    <div
+                        style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
                         <h3 style="margin:0;">📋 Listado de Parcelas</h3>
-                        <span class="badge badge-info" id="parcelas-total-ha" style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">📐 Total: 0 ha</span>
+                        <span class="badge badge-info" id="parcelas-total-ha"
+                            style="font-size: 0.95rem; padding: 0.4rem 0.8rem;">📐 Total: 0 ha</span>
                     </div>
                     <div id="parcelas-list" class="items-list">
                         <p class="empty-msg">No hay parcelas registradas. ¡Añade tu primera parcela!</p>
@@ -498,10 +550,12 @@
 
                 <div class="card form-card register-card">
                     <div class="register-quick-tools">
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-reg-toggle">⚡ Modo Parte Rápido</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-reg-toggle">⚡ Modo Parte
+                            Rápido</button>
                         <button type="button" class="btn btn-ghost btn-sm" id="quick-set-today">Hoy</button>
                         <button type="button" class="btn btn-ghost btn-sm" id="quick-set-hour">1h</button>
-                        <button type="button" class="btn btn-ghost btn-sm" id="quick-clear-extra">Limpiar extras</button>
+                        <button type="button" class="btn btn-ghost btn-sm" id="quick-clear-extra">Limpiar
+                            extras</button>
                     </div>
                     <form id="form-registro" class="register-form">
                         <div class="form-row">
@@ -571,8 +625,10 @@
                         </div>
 
                         <!-- CAMPOS SIEX: HERBICIDA / FITO (Oculto por defecto) -->
-                        <div id="siex-fito-container" class="card card-fito-mode" style="display: none; margin-bottom: 1rem;">
-                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ef5350;">🧪 Datos Tratamiento Herbicida / Fito (SIEX)</h4>
+                        <div id="siex-fito-container" class="card card-fito-mode"
+                            style="display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ef5350;">🧪 Datos Tratamiento
+                                Herbicida / Fito (SIEX)</h4>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-fito-inventario">📦 Producto del Almacén</label>
@@ -585,14 +641,18 @@
                                     <input type="text" id="reg-fito-producto" placeholder="Ej: Abamectina o Glifosato">
                                 </div>
                                 <div class="form-group">
-                                    <label for="reg-fito-nregistro">Nº Registro MITECO</label>
-                                    <input type="text" id="reg-fito-nregistro" placeholder="Ej: 12345">
+                                    <label for="reg-fito-nregistro">Nº Registro MITECO / Barras</label>
+                                    <div style="display: flex; gap: 5px;">
+                                        <input type="text" id="reg-fito-nregistro" placeholder="Ej: 12345" style="flex: 1;">
+                                        <button type="button" class="btn btn-ghost" id="btn-scan-fito" title="Escanear Código de Barras" style="border: 1px solid var(--primary);">📸 Escanear</button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-fito-cantidad">Cantidad Usada</label>
-                                    <input type="number" id="reg-fito-cantidad" step="0.01" min="0" placeholder="Ej: 0.5">
+                                    <input type="number" id="reg-fito-cantidad" step="0.01" min="0"
+                                        placeholder="Ej: 0.5">
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-fito-dosis">Dosis</label>
@@ -618,8 +678,10 @@
                         </div>
 
                         <!-- CAMPOS SIEX: ABONADO (Oculto por defecto) -->
-                        <div id="siex-abono-container" class="card card-abono-mode" style="display: none; margin-bottom: 1rem;">
-                            <h4 style="margin-top:0; margin-bottom: 1rem; color: var(--pistachio-400);">🌾 Datos Plan Abonado / Riego (SIEX)</h4>
+                        <div id="siex-abono-container" class="card card-abono-mode"
+                            style="display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: var(--pistachio-400);">🌾 Datos Plan
+                                Abonado / Riego (SIEX)</h4>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-abono-inventario">📦 Fertilizante del Almacén</label>
@@ -629,13 +691,15 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-abono-nutrientes">Nutrientes (N-P-K u otros)</label>
-                                    <input type="text" id="reg-abono-nutrientes" placeholder="Ej: 8-15-15 o Nitrato Potásico">
+                                    <input type="text" id="reg-abono-nutrientes"
+                                        placeholder="Ej: 8-15-15 o Nitrato Potásico">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-abono-cantidad-num">Cantidad Usada</label>
-                                    <input type="number" id="reg-abono-cantidad-num" step="0.01" min="0" placeholder="Ej: 50">
+                                    <input type="number" id="reg-abono-cantidad-num" step="0.01" min="0"
+                                        placeholder="Ej: 50">
                                 </div>
                                 <div class="form-group">
                                     <label for="reg-abono-cantidad">Descripción Dosis</label>
@@ -661,8 +725,10 @@
                         </div>
 
                         <!-- CAMPOS SIEX: COSECHA (Oculto por defecto) -->
-                        <div id="siex-cosecha-container" class="card quick-optional" style="background: rgba(255, 183, 77, 0.05); border-color: rgba(255, 183, 77, 0.2); display: none; margin-bottom: 1rem;">
-                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ffb74d;">🧺 Datos Cosecha / Trazabilidad</h4>
+                        <div id="siex-cosecha-container" class="card quick-optional"
+                            style="background: rgba(255, 183, 77, 0.05); border-color: rgba(255, 183, 77, 0.2); display: none; margin-bottom: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 1rem; color: #ffb74d;">🧺 Datos Cosecha /
+                                Trazabilidad</h4>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="reg-cosecha-kg">Kg Recolectados en Parcela</label>
@@ -747,7 +813,13 @@
                         <h3>📋 Resultados</h3>
                         <div class="table-actions">
                             <!-- The print button remains here -->
-                            <button class="btn btn-primary btn-sm" id="btn-print">
+                            <button class="btn btn-primary btn-sm" id="btn-pdf-oficial">
+                                📄 Generar Cuaderno Oficial
+                            </button>
+                            <button class="btn btn-secondary btn-sm" id="btn-export-siex">
+                                📤 Exportar SIEX
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="btn-print">
                                 🖨️ Imprimir
                             </button>
                         </div>
@@ -780,9 +852,16 @@
 
             <!-- ===== GALERÍA DE FOTOS ===== -->
             <section class="content-section" id="section-galeria">
-                <div class="section-header animate-fade-in-up">
-                    <h1>📷 Galería de Fotos</h1>
-                    <p class="section-desc">Fotos de tus parcelas organizadas por año</p>
+                <div class="section-header-premium">
+                    <div class="section-title-block">
+                        <span class="section-subtitle">Memoria Visual</span>
+                        <h2 class="section-title">Galería de Evolución</h2>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn btn-secondary" id="btn-toggle-comparison">
+                            <span>🔄</span> Modo Comparativa
+                        </button>
+                    </div>
                 </div>
 
 
@@ -829,6 +908,25 @@
                     </div>
 
                     <!-- Year tabs + photo grid -->
+                    <div id="gallery-years-tabs" class="year-tabs-container"></div>
+                    
+                    <div id="comparison-view" class="premium-card" style="display: none; margin-bottom: 2rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h4>🔄 Comparativa de Evolución</h4>
+                            <button class="btn btn-ghost" onclick="app._toggleGalleryComparison()">Cancelar</button>
+                        </div>
+                        <div class="comparison-grid">
+                            <div class="comparison-slot" id="comp-slot-1">
+                                <p>Selecciona la primera foto...</p>
+                            </div>
+                            <div class="comparison-divider">VS</div>
+                            <div class="comparison-slot" id="comp-slot-2">
+                                <p>Selecciona la segunda foto...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="gallery-photo-grid" class="photo-grid"></div>
                     <div class="card">
                         <div class="year-tabs" id="year-tabs"></div>
                         <div id="photo-grid" class="photo-grid">
@@ -973,14 +1071,28 @@
                         <button class="btn btn-primary btn-full" id="btn-export">
                             <span style="font-size: 1.2rem;">📦</span> Descargar Copia Completa (JSON)
                         </button>
-                        
-                        <p style="color:var(--text-secondary); font-size: 0.9rem; margin-top: 2rem; margin-bottom: 1.5rem;">
-                            Exportar listado de trabajos y tratamientos en formato de tabla para inspecciones, REOPF y presentación oficial (Normativa SIEX).
+
+                        <p
+                            style="color:var(--text-secondary); font-size: 0.9rem; margin-top: 2rem; margin-bottom: 1.5rem;">
+                            Exportar listado de trabajos y tratamientos en formato de tabla para inspecciones, REOPF y
+                            presentación oficial (Normativa SIEX).
                         </p>
-                        <button class="btn btn-secondary btn-full" id="btn-export-siex" style="border-color: var(--success); color: var(--success);">
+                        <button class="btn btn-secondary btn-full" id="btn-export-siex"
+                            style="border-color: var(--success); color: var(--success);">
                             <span style="font-size: 1.2rem;">📊</span> Exportar Registros a CSV (Formato Excel/SIEX)
                         </button>
-                        
+
+                        <p
+                            style="color:var(--text-secondary); font-size: 0.9rem; margin-top: 2rem; margin-bottom: 1.5rem;">
+                            Recuperar el sistema completo a partir de una copia de seguridad (Archivo JSON). 
+                            <b style="color:#ef5350;">¡Atención: Esto sobrescribirá todos los datos actuales!</b>
+                        </p>
+                        <button class="btn btn-ghost btn-full" id="btn-import"
+                            style="border-color: var(--text-secondary); color: var(--text-secondary); border-style: dashed;">
+                            <span style="font-size: 1.2rem;">📥</span> Importar / Restaurar Copia (JSON)
+                        </button>
+                        <input type="file" id="import-file" accept=".json" hidden>
+
                         <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">* Las fotografías no
                             se incluyen en los archivos generados, se mantienen en el servidor.</p>
                     </div>
@@ -1005,18 +1117,25 @@
                     <p class="section-desc">Aprende a sacar el máximo partido a Garuto</p>
                 </div>
 
-                <div class="help-sections animate-fade-in-up stagger-1" style="display: flex; flex-direction: column; gap: 1rem; max-width: 900px; margin: 0 auto;">
-                    
+                <div class="help-sections animate-fade-in-up stagger-1"
+                    style="display: flex; flex-direction: column; gap: 1rem; max-width: 900px; margin: 0 auto;">
+
                     <!-- Introducción -->
                     <div class="card help-accordion">
                         <details open>
-                            <summary><h3>📊 1. Inicio y Panel de Control</h3></summary>
+                            <summary>
+                                <h3>📊 1. Inicio y Panel de Control</h3>
+                            </summary>
                             <div class="help-content">
                                 <p>Al entrar en Garuto, verás un resumen automático de tu explotación:</p>
                                 <ul>
-                                    <li><strong>Resumen Estadístico:</strong> Conocerás tus hectáreas activas, volumen de tareas anotadas y el balance económico global.</li>
-                                    <li><strong>Clima en vivo:</strong> Datos de tu municipio con consejos del Asistente (ej: precaución por lluvias o temperaturas bajas).</li>
-                                    <li><strong>Últimos Registros y Gráficos:</strong> Accesos ultrarrápidos para revisar la última labor hecha por los trabajadores y la distribución mensual del gasto en un vistazo.</li>
+                                    <li><strong>Resumen Estadístico:</strong> Conocerás tus hectáreas activas, volumen
+                                        de tareas anotadas y el balance económico global.</li>
+                                    <li><strong>Clima en vivo:</strong> Datos de tu municipio con consejos del Asistente
+                                        (ej: precaución por lluvias o temperaturas bajas).</li>
+                                    <li><strong>Últimos Registros y Gráficos:</strong> Accesos ultrarrápidos para
+                                        revisar la última labor hecha por los trabajadores y la distribución mensual del
+                                        gasto en un vistazo.</li>
                                 </ul>
                             </div>
                         </details>
@@ -1025,34 +1144,54 @@
                     <!-- Parcelas -->
                     <div class="card help-accordion">
                         <details>
-                            <summary><h3>🗺️ 2. Gestión de Parcelas</h3></summary>
+                            <summary>
+                                <h3>🗺️ 2. Gestión de Parcelas</h3>
+                            </summary>
                             <div class="help-content">
                                 <p>El núcleo cartográfico físico donde registras tus tierras:</p>
                                 <ul>
-                                    <li><strong>Geolocalización In-Situ:</strong> Si estás en medio del terreno probando la app, pulsa "Detectar Mi Ubicación" para que el GPS asigne automáticamente las coordenadas de la parcela a la ficha.</li>
-                                    <li><strong>Catastro/SIGPAC:</strong> Registra la referencia completa de cada polígono/parcela para poder emitir partes correctamente. Tienes un botón verde "SIGPAC" bajo cada parcela para saltar directamente al visor oficial del mapa.</li>
-                                    <li><strong>Mapa de Árboles Interactivo:</strong> Se activa con el botón "🌿 Mapa" de la tabla. Abre una vista satelital privada donde podrás censar árbol por árbol haciendo clics sobre la imagen para asignarles su estado actual (Macho, Hembra, Injertado, Marra, Replantado...).</li>
+                                    <li><strong>Geolocalización In-Situ:</strong> Si estás en medio del terreno probando
+                                        la app, pulsa "Detectar Mi Ubicación" para que el GPS asigne automáticamente las
+                                        coordenadas de la parcela a la ficha.</li>
+                                    <li><strong>Catastro/SIGPAC:</strong> Registra la referencia completa de cada
+                                        polígono/parcela para poder emitir partes correctamente. Tienes un botón verde
+                                        "SIGPAC" bajo cada parcela para saltar directamente al visor oficial del mapa.
+                                    </li>
+                                    <li><strong>Mapa de Árboles Interactivo:</strong> Se activa con el botón "🌿 Mapa"
+                                        de la tabla. Abre una vista satelital privada donde podrás censar árbol por
+                                        árbol haciendo clics sobre la imagen para asignarles su estado actual (Macho,
+                                        Hembra, Injertado, Marra, Replantado...).</li>
                                 </ul>
                             </div>
                         </details>
                     </div>
 
                     <!-- Manuales Oficiales -->
-                    <div class="card help-accordion animate-fade-in-up stagger-2" style="border-top: 2px solid var(--pistachio-500);">
+                    <div class="card help-accordion animate-fade-in-up stagger-2"
+                        style="border-top: 2px solid var(--pistachio-500);">
                         <details>
-                            <summary><h3>📚 10. Manuales y Documentación Oficial</h3></summary>
+                            <summary>
+                                <h3>📚 10. Manuales y Documentación Oficial</h3>
+                            </summary>
                             <div class="help-content">
-                                <p>Descarga las guías completas para una instalación técnica o para aprender cada secreto de la plataforma:</p>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
-                                    <a href="manual_usuario.pdf" target="_blank" class="btn btn-secondary btn-full" style="text-decoration: none; padding: 1.5rem;">
+                                <p>Descarga las guías completas para una instalación técnica o para aprender cada
+                                    secreto de la plataforma:</p>
+                                <div
+                                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                                    <a href="manual_usuario.pdf" target="_blank" class="btn btn-secondary btn-full"
+                                        style="text-decoration: none; padding: 1.5rem;">
                                         <div style="font-size: 2rem; margin-bottom: 0.5rem;">📖</div>
                                         <strong>Manual de Usuario</strong>
-                                        <span style="display: block; font-size: 0.8rem; opacity: 0.7;">Guía paso a paso</span>
+                                        <span style="display: block; font-size: 0.8rem; opacity: 0.7;">Guía paso a
+                                            paso</span>
                                     </a>
-                                    <a href="manual_tecnico_instalacion.pdf" target="_blank" class="btn btn-secondary btn-full" style="text-decoration: none; padding: 1.5rem;">
+                                    <a href="manual_tecnico_instalacion.pdf" target="_blank"
+                                        class="btn btn-secondary btn-full"
+                                        style="text-decoration: none; padding: 1.5rem;">
                                         <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛠️</div>
                                         <strong>Manual Técnico</strong>
-                                        <span style="display: block; font-size: 0.8rem; opacity: 0.7;">Instalación y API</span>
+                                        <span style="display: block; font-size: 0.8rem; opacity: 0.7;">Instalación y
+                                            API</span>
                                     </a>
                                 </div>
                             </div>
@@ -1062,27 +1201,45 @@
                     <!-- Trabajos y SIEX -->
                     <div class="card help-accordion">
                         <details>
-                            <summary><h3>📝 3. Registrar Trabajo (Modo Rápido y SIEX)</h3></summary>
+                            <summary>
+                                <h3>📝 3. Registrar Trabajo (Modo Rápido y SIEX)</h3>
+                            </summary>
                             <div class="help-content">
-                                <p>Esta sección sirve para anotar los partes diarios y tener tu Cuaderno de Explotación validado ante el ministerio.</p>
+                                <p>Esta sección sirve para anotar los partes diarios y tener tu Cuaderno de Explotación
+                                    validado ante el ministerio.</p>
                                 <ul>
-                                    <li><strong>⚡ Modo Parte Rápido:</strong> ¿No tienes tiempo y la labor es sencilla? Dale a este botón y ocultará todos los datos avanzados administrativos. La pantalla quedará vacía y solo te obligará a seleccionar la acción y la parcela básica.</li>
-                                    <li><strong>Botones de Auto-rellenado (Hoy, 1h):</strong> Toca "Hoy" para estampar la fecha actual sin tocar calendarios, y toca "1h" si echaste una horita rápida en vez de marcar relojes.</li>
-                                    <li><strong>Cronómetro:</strong> Si de verdad empiezas a trabajar en ese momento, dale al "Play". Cuando te limpies el sudor y acabes, vuélvelo a pulsar y tendrás tabulado tu tiempo exacto de peonadas.</li>
-                                    <li><strong>Despliegue SIEX:</strong> Aparece solo si hace falta. Si escoges que tipo de labor es un tratamiento "Herbicida", "Fitosanitario" o "Abonado", emergerán submenús oficiales para recabar Dosis, N.º MITECO, Plagas y tu N.º de Carnet. Cumplirás la ley de Cuadernos Digitales de inmediato.</li>
+                                    <li><strong>⚡ Modo Parte Rápido:</strong> ¿No tienes tiempo y la labor es sencilla?
+                                        Dale a este botón y ocultará todos los datos avanzados administrativos. La
+                                        pantalla quedará vacía y solo te obligará a seleccionar la acción y la parcela
+                                        básica.</li>
+                                    <li><strong>Botones de Auto-rellenado (Hoy, 1h):</strong> Toca "Hoy" para estampar
+                                        la fecha actual sin tocar calendarios, y toca "1h" si echaste una horita rápida
+                                        en vez de marcar relojes.</li>
+                                    <li><strong>Cronómetro:</strong> Si de verdad empiezas a trabajar en ese momento,
+                                        dale al "Play". Cuando te limpies el sudor y acabes, vuélvelo a pulsar y tendrás
+                                        tabulado tu tiempo exacto de peonadas.</li>
+                                    <li><strong>Despliegue SIEX:</strong> Aparece solo si hace falta. Si escoges que
+                                        tipo de labor es un tratamiento "Herbicida", "Fitosanitario" o "Abonado",
+                                        emergerán submenús oficiales para recabar Dosis, N.º MITECO, Plagas y tu N.º de
+                                        Carnet. Cumplirás la ley de Cuadernos Digitales de inmediato.</li>
                                 </ul>
                             </div>
                         </details>
                     </div>
-                    
+
                     <!-- Consulta e Historial -->
                     <div class="card help-accordion">
                         <details>
-                            <summary><h3>🔍 4. Consultar Historial</h3></summary>
+                            <summary>
+                                <h3>🔍 4. Consultar Historial</h3>
+                            </summary>
                             <div class="help-content">
                                 <ul>
-                                    <li>Usa el filtro de fechas (Ej: "Desde el 1 de Enero hasta Hoy") sobre una "Parcela exacta" para que el programa te escupa una tabla depurada.</li>
-                                    <li><strong>Imprimir:</strong> Usa el botón si viene una inspector y necesita un listado ordenado sin interfaz negra. Saldrá sobre fondo blanco ideal para tu impresora.</li>
+                                    <li>Usa el filtro de fechas (Ej: "Desde el 1 de Enero hasta Hoy") sobre una "Parcela
+                                        exacta" para que el programa te escupa una tabla depurada.</li>
+                                    <li><strong>Imprimir:</strong> Usa el botón si viene una inspector y necesita un
+                                        listado ordenado sin interfaz negra. Saldrá sobre fondo blanco ideal para tu
+                                        impresora.</li>
                                 </ul>
                             </div>
                         </details>
@@ -1091,41 +1248,68 @@
                     <!-- Almacén y Maquinaria -->
                     <div class="card help-accordion">
                         <details>
-                            <summary><h3>📦 5. Inventario, Gastos y Reparaciones</h3></summary>
+                            <summary>
+                                <h3>📦 5. Inventario, Gastos y Reparaciones</h3>
+                            </summary>
                             <div class="help-content">
                                 <p>Controla tus máquinas y el dinero invertido:</p>
                                 <ul>
-                                    <li><strong>Almacén Eficiente:</strong> Tú cargas los sacos de Nitrato Potásico de 50Kg con su precio y los subes al almacén virtual. Cuando luego te vas a registrar un trabajo indicando "Eché tanto abono del inventario", el propio sistema se encarga de <b>rebajar automáticamente</b> el sobrante del Almacén y <b>cargar al coste base</b> dicho material gastado en esa parcela en concreto. ¡Contabilidad 100% ciega!</li>
-                                    <li><strong>Gastos de Tractor:</strong> Crea tus máquinas y asócialas a un coste por hora de motor. Añade a todo esto mantenimientos, aceites, ITEAF y reparaciones y todo convergerá en el resumen inicial.</li>
+                                    <li><strong>Almacén Eficiente:</strong> Tú cargas los sacos de Nitrato Potásico de
+                                        50Kg con su precio y los subes al almacén virtual. Cuando luego te vas a
+                                        registrar un trabajo indicando "Eché tanto abono del inventario", el propio
+                                        sistema se encarga de <b>rebajar automáticamente</b> el sobrante del Almacén y
+                                        <b>cargar al coste base</b> dicho material gastado en esa parcela en concreto.
+                                        ¡Contabilidad 100% ciega!
+                                    </li>
+                                    <li><strong>Gastos de Tractor:</strong> Crea tus máquinas y asócialas a un coste por
+                                        hora de motor. Añade a todo esto mantenimientos, aceites, ITEAF y reparaciones y
+                                        todo convergerá en el resumen inicial.</li>
                                 </ul>
                             </div>
                         </details>
                     </div>
 
                     <!-- Offline y Pistachín -->
-                    <div class="card help-accordion" style="border-color: var(--pistachio-400); background: rgba(163, 214, 94, 0.05);">
+                    <div class="card help-accordion"
+                        style="border-color: var(--pistachio-400); background: rgba(163, 214, 94, 0.05);">
                         <details>
-                            <summary><h3 style="color: var(--pistachio-400);">📶 6. Offline Total y Asistente Pistachín</h3></summary>
+                            <summary>
+                                <h3 style="color: var(--pistachio-400);">📶 6. Offline Total y Asistente Pistachín</h3>
+                            </summary>
                             <div class="help-content">
                                 <ul>
-                                    <li><strong>¿Trabajas sin raya de cobertura?</strong> Sigue anotando y tecleando. Toda la App de Garuto seguirá viva. Guardará los paquetes con un candado para ellos solos hasta pillar una brizna de Internet o WiFi. Entonces, sin avisarte, re-sincronizará el Servidor.</li>
-                                    <li><strong>Agente IA Experto:</strong> Abajo flotando a la derecha verás una pequeña cabeza de maní. Él es "Pistachín". Solo tienes que llamarle e indicarle cosas como: <i>"Acabo de ver manchitas blancas en el árbol, ¿es verticillium?"</i>. Él cotejará tu libreta de campo, recordará tus últimas lluvias, leerá la base de datos de tratamientos de la sección 4, y te contestará con instrucciones de fumigado precisas a ejecutar.</li>
+                                    <li><strong>¿Trabajas sin raya de cobertura?</strong> Sigue anotando y tecleando.
+                                        Toda la App de Garuto seguirá viva. Guardará los paquetes con un candado para
+                                        ellos solos hasta pillar una brizna de Internet o WiFi. Entonces, sin avisarte,
+                                        re-sincronizará el Servidor.</li>
+                                    <li><strong>Agente IA Experto:</strong> Abajo flotando a la derecha verás una
+                                        pequeña cabeza de maní. Él es "Pistachín". Solo tienes que llamarle e indicarle
+                                        cosas como: <i>"Acabo de ver manchitas blancas en el árbol, ¿es
+                                            verticillium?"</i>. Él cotejará tu libreta de campo, recordará tus últimas
+                                        lluvias, leerá la base de datos de tratamientos de la sección 4, y te contestará
+                                        con instrucciones de fumigado precisas a ejecutar.</li>
                                 </ul>
                             </div>
                         </details>
                     </div>
 
                     <!-- Manuales PDF -->
-                    <div class="card help-accordion" style="border: 2px solid var(--pistachio-500); background: var(--bg-surface-elevated);">
+                    <div class="card help-accordion"
+                        style="border: 2px solid var(--pistachio-500); background: var(--bg-surface-elevated);">
                         <details open>
-                            <summary><h3>📚 7. Manuales Detallados (PDF)</h3></summary>
+                            <summary>
+                                <h3>📚 7. Manuales Detallados (PDF)</h3>
+                            </summary>
                             <div class="help-content">
-                                <p>Descarga o visualiza las guías completas del proyecto en formato PDF para una consulta más profunda o impresión:</p>
+                                <p>Descarga o visualiza las guías completas del proyecto en formato PDF para una
+                                    consulta más profunda o impresión:</p>
                                 <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
-                                    <a href="manual_usuario.pdf" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                    <a href="manual_usuario.pdf" target="_blank" class="btn btn-primary"
+                                        style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
                                         📖 Manual de Usuario (PDF)
                                     </a>
-                                    <a href="manual_tecnico_instalacion.pdf" target="_blank" class="btn btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
+                                    <a href="manual_tecnico_instalacion.pdf" target="_blank" class="btn btn-secondary"
+                                        style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem;">
                                         🛠️ Manual Técnico (PDF)
                                     </a>
                                 </div>
@@ -1213,6 +1397,9 @@
                         <button class="btn btn-primary" id="btn-nueva-venta">
                             <span>🌾</span> Registrar Venta
                         </button>
+                        <button class="btn btn-ghost" id="btn-show-trace-qr" style="border: 1px dashed var(--primary); margin-left: 0.5rem;" title="Generar QR de Trazabilidad (Demo)">
+                            <span>📦</span> Generar QR Demo
+                        </button>
                     </div>
                 </div>
 
@@ -1263,11 +1450,39 @@
             </section>
 
 
+            <!-- ===== MERCADO ===== -->
+            <section class="content-section" id="section-mercado">
+                <div class="section-header-premium">
+                    <div class="section-title-block">
+                        <span class="section-subtitle">Inteligencia de Negocio</span>
+                        <h2 class="section-title">Precios y Tendencias</h2>
+                    </div>
+                </div>
+
+                <div class="market-grid">
+                    <div class="premium-card market-card animate-fade-in-up">
+                        <h3>💰 Precios Lonja (Hoy)</h3>
+                        <div id="market-prices-list">
+                            <!-- Dinámico -->
+                        </div>
+                    </div>
+                    <div class="premium-card market-card animate-fade-in-up" style="animation-delay: 0.1s;">
+                        <h3>📊 Tendencia Anual</h3>
+                        <canvas id="market-trend-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="premium-card animate-fade-in-up" style="margin-top: 2rem; animation-delay: 0.2s;">
+                    <h3>💡 Consejos de Venta (Pistachín AI)</h3>
+                    <p id="market-advice">Cargando sugerencias del mercado...</p>
+                </div>
+            </section>
+
             <!-- FOOTER -->
             <footer class="main-footer">
                 <p>&copy;
                     <script>document.write(new Date().getFullYear())</script> <a href="https://tituta.es/JCGM.DEV/"
-                        target="_blank" rel="noopener noreferrer">&lt;/thebrave&gt;</a>. Todos los derechos reservados.
+                        target="_blank" rel="noopener noreferrer">&lt;/jcgm.dev&gt;</a>. Todos los derechos reservados.
                 </p>
             </footer>
 
@@ -1281,7 +1496,8 @@
             <p id="modal-confirm-msg" style="margin-bottom: 2rem; color: var(--text-secondary);"></p>
             <div style="display: flex; gap: 1rem; justify-content: flex-end;">
                 <button id="btn-confirm-cancel" class="btn btn-secondary">Cancelar</button>
-                <button id="btn-confirm-ok" class="btn btn-primary" style="background-color: #ef5350 !important; color: white; border:none;">Eliminar</button>
+                <button id="btn-confirm-ok" class="btn btn-primary"
+                    style="background-color: #ef5350 !important; color: white; border:none;">Eliminar</button>
             </div>
         </div>
     </div>
@@ -1301,7 +1517,7 @@
                 <h2>📂 Documentación: <span id="docs-parcela-name">...</span></h2>
                 <button class="close-modal" id="close-modal-docs">✕</button>
             </div>
-            
+
             <div class="modal-body">
                 <!-- Formulario añadir doc -->
                 <form id="form-doc" class="doc-add-form">
@@ -1309,7 +1525,8 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="doc-titulo">📌 Título del documento</label>
-                            <input type="text" id="doc-titulo" placeholder="Ej: Escritura, SIGPAC, Catastro..." required>
+                            <input type="text" id="doc-titulo" placeholder="Ej: Escritura, SIGPAC, Catastro..."
+                                required>
                         </div>
                         <div class="form-group">
                             <label for="doc-url">🔗 Enlace / URL (opcional)</label>
@@ -1344,7 +1561,7 @@
                 <h2>🛠️ Mantenimiento y Recambios: <span id="reparaciones-maquina-name">...</span></h2>
                 <button class="close-modal" id="close-modal-reparaciones">✕</button>
             </div>
-            
+
             <div class="modal-body">
                 <!-- Formulario añadir reparación -->
                 <form id="form-reparacion" class="doc-add-form">
@@ -1356,7 +1573,8 @@
                         </div>
                         <div class="form-group">
                             <label for="reparacion-coste">💶 Coste (€)</label>
-                            <input type="number" id="reparacion-coste" step="0.01" min="0" placeholder="Ej: 150.50" required>
+                            <input type="number" id="reparacion-coste" step="0.01" min="0" placeholder="Ej: 150.50"
+                                required>
                         </div>
                         <div class="form-group">
                             <label for="reparacion-tipo">🔧 Tipo</label>
@@ -1369,7 +1587,8 @@
                     </div>
                     <div class="form-group">
                         <label for="reparacion-desc">📝 Descripción / Notas</label>
-                        <input type="text" id="reparacion-desc" placeholder="Ej: Cambio de aceite y filtros, reparación de bomba..." required>
+                        <input type="text" id="reparacion-desc"
+                            placeholder="Ej: Cambio de aceite y filtros, reparación de bomba..." required>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">➕ Añadir Registro de Gasto</button>
                 </form>
@@ -1389,7 +1608,8 @@
         <div class="modal-content card" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>💰 Nuevo Movimiento</h2>
-                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-movimiento', false)">✕</button>
+                <button class="close-modal" aria-label="Cerrar modal"
+                    onclick="app._toggleModal('modal-movimiento', false)">✕</button>
             </div>
             <div class="modal-body">
                 <form id="form-movimiento" class="doc-add-form">
@@ -1426,7 +1646,8 @@
                     </div>
                     <div class="form-group">
                         <label for="fin-descripcion">📝 Descripción u Observaciones</label>
-                        <input type="text" id="fin-descripcion" placeholder="Ej: Compra de Gasoil, Venta a cooperativa..." required>
+                        <input type="text" id="fin-descripcion"
+                            placeholder="Ej: Compra de Gasoil, Venta a cooperativa..." required>
                     </div>
                     <button type="submit" class="btn btn-primary btn-full">Guardar Movimiento</button>
                 </form>
@@ -1439,7 +1660,8 @@
         <div class="modal-content card" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>🌾 Registrar Venta de Cosecha</h2>
-                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-venta', false)">✕</button>
+                <button class="close-modal" aria-label="Cerrar modal"
+                    onclick="app._toggleModal('modal-venta', false)">✕</button>
             </div>
             <div class="modal-body">
                 <form id="form-venta" class="doc-add-form">
@@ -1467,7 +1689,8 @@
                         </div>
                         <div class="form-group">
                             <label for="venta-total">Total Bruto (€)</label>
-                            <input type="number" id="venta-total" step="0.01" readonly style="background-color: var(--card-bg);">
+                            <input type="number" id="venta-total" step="0.01" readonly
+                                style="background-color: var(--card-bg);">
                         </div>
                     </div>
                     <div class="form-group">
@@ -1485,7 +1708,8 @@
         <div class="modal-content card" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>🚜 Registrar Cosecha en Campo</h2>
-                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-nueva-cosecha', false)">✕</button>
+                <button class="close-modal" aria-label="Cerrar modal"
+                    onclick="app._toggleModal('modal-nueva-cosecha', false)">✕</button>
             </div>
             <div class="modal-body">
                 <form id="form-nueva-cosecha" class="doc-add-form">
@@ -1533,7 +1757,8 @@
             </div>
             <div id="pistachin-messages" class="pistachin-messages-area">
                 <div class="message bot">
-                    Hola! Soy <b>Pistachín</b>, tu asistente agrícola. <img src="nut.png" style="width: 20px; vertical-align: middle;"> <br>¿En qué puedo ayudarte hoy?
+                    Hola! Soy <b>Pistachín</b>, tu asistente agrícola. <img src="nut.png"
+                        style="width: 20px; vertical-align: middle;"> <br>¿En qué puedo ayudarte hoy?
                 </div>
             </div>
             <div id="pistachin-quick-actions" class="pistachin-quick-actions"></div>
@@ -1555,15 +1780,18 @@
 
     <!-- MODAL RECORDATORIO PLANING MENSUAL -->
     <div id="modal-planning-reminder" class="modal">
-        <div class="modal-content card" style="max-width: 500px; border: 2px solid var(--pistachio-400); box-shadow: 0 0 30px rgba(163, 214, 94, 0.2);">
+        <div class="modal-content card"
+            style="max-width: 500px; border: 2px solid var(--pistachio-400); box-shadow: 0 0 30px rgba(163, 214, 94, 0.2);">
             <div class="modal-header">
-                <h2 id="reminder-title" style="display: flex; align-items: center; gap: 0.5rem;">📅 Recordatorio de Tareas</h2>
+                <h2 id="reminder-title" style="display: flex; align-items: center; gap: 0.5rem;">📅 Recordatorio de
+                    Tareas</h2>
                 <button class="close-modal" id="close-modal-reminder">✕</button>
             </div>
             <div class="modal-body" id="reminder-body" style="padding: 1rem 0;">
                 <!-- Dinámico -->
             </div>
-            <div class="modal-footer" style="padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 0.8rem;">
+            <div class="modal-footer"
+                style="padding-top: 1.5rem; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 0.8rem;">
                 <button class="btn btn-primary btn-full" id="btn-enable-notifications">
                     <span>🔔</span> Activar Alertas en este equipo
                 </button>
@@ -1592,7 +1820,8 @@
         <div class="modal-content card" style="max-width: 440px;">
             <div class="modal-header">
                 <h3>🔐 Cambiar Contraseña</h3>
-                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-password', false)">✕</button>
+                <button class="close-modal" aria-label="Cerrar modal"
+                    onclick="app._toggleModal('modal-password', false)">✕</button>
             </div>
             <div class="modal-body">
                 <form id="form-change-password">
@@ -1621,7 +1850,8 @@
         <div class="modal-content card" style="max-width: 800px;">
             <div class="modal-header">
                 <h3>👥 Gestión de Usuarios</h3>
-                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-usuarios-lista', false)">✕</button>
+                <button class="close-modal" aria-label="Cerrar modal"
+                    onclick="app._toggleModal('modal-usuarios-lista', false)">✕</button>
             </div>
             <div class="modal-body">
                 <div style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
@@ -1651,26 +1881,31 @@
         <div class="modal-content card" style="max-width: 440px;">
             <div class="modal-header">
                 <h3 id="user-form-title">👤 Usuario</h3>
-                <button class="close-modal" aria-label="Cerrar modal" onclick="app._toggleModal('modal-usuario-form', false)">✕</button>
+                <button class="close-modal" aria-label="Cerrar modal"
+                    onclick="app._toggleModal('modal-usuario-form', false)">✕</button>
             </div>
             <div class="modal-body">
                 <form id="form-manage-user" style="text-align: left;">
                     <input type="hidden" id="manage-user-id">
-                    
+
                     <div class="input-group-modern" style="margin-bottom: 1rem;">
                         <label>👤 Nombre de Usuario (Login)</label>
-                        <input type="text" id="manage-user-username" class="input-modern" required placeholder="ej: joao_p">
+                        <input type="text" id="manage-user-username" class="input-modern" required
+                            placeholder="ej: joao_p">
                     </div>
 
                     <div class="input-group-modern" style="margin-bottom: 1rem;">
                         <label>🏷️ Nombre a Mostrar</label>
-                        <input type="text" id="manage-user-display" class="input-modern" required placeholder="ej: João Pereira">
+                        <input type="text" id="manage-user-display" class="input-modern" required
+                            placeholder="ej: João Pereira">
                     </div>
 
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="form-row"
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div class="input-group-modern">
                             <label>📧 Email</label>
-                            <input type="email" id="manage-user-email" class="input-modern" placeholder="correo@ejemplo.com">
+                            <input type="email" id="manage-user-email" class="input-modern"
+                                placeholder="correo@ejemplo.com">
                         </div>
                         <div class="input-group-modern">
                             <label>📞 Teléfono</label>
@@ -1680,7 +1915,8 @@
 
                     <div class="input-group-modern" style="margin-bottom: 1rem;">
                         <label>🔒 Contraseña</label>
-                        <input type="password" id="manage-user-password" class="input-modern" placeholder="Dejar vacío para no cambiar">
+                        <input type="password" id="manage-user-password" class="input-modern"
+                            placeholder="Dejar vacío para no cambiar">
                     </div>
 
                     <div class="input-group-modern" style="margin-bottom: 1.5rem;">
@@ -1698,7 +1934,200 @@
         </div>
     </div>
 
+
+
+    <!-- Modales Fase 2 -->
+    <div id="modal-scanner" class="modal-overlay" style="display:none; z-index: 9999;">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>📸 Escáner de Fitosanitarios</h3>
+                <button type="button" class="btn-close" id="btn-close-scanner">×</button>
+            </div>
+            <div id="scanner-reader" style="width: 100%; min-height: 250px; background: #000; border-radius: 8px;"></div>
+            <p style="text-align: center; margin-top: 10px; font-size: 13px;">Enfoca el código de barras del envase</p>
+        </div>
+    </div>
+
+    <div id="modal-qr" class="modal-overlay" style="display:none; z-index: 10000;">
+        <div class="modal-content" style="max-width: 320px; text-align: center;">
+            <h3>📦 QR de Trazabilidad</h3>
+            <div id="qrcode" style="display: flex; justify-content: center; padding: 15px;"></div>
+            <button class="btn btn-primary btn-full" id="btn-close-qr">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- Modal Detalle de Registro (Editable) -->
+    <div id="modal-record-detail" class="modal-overlay" style="display:none; z-index: 9999;">
+        <div class="modal-content record-detail-modal">
+            <div class="modal-header-premium">
+                <div class="header-title">
+                    <span class="header-subtitle" id="det-registro-subtitle">Detalle del Trabajo</span>
+                    <h2 id="det-registro-title">Registro #000</h2>
+                </div>
+                <button type="button" class="btn-close-premium" id="btn-close-record-detail">×</button>
+            </div>
+            
+            <form id="form-edit-record" class="record-detail-form">
+                <input type="hidden" id="det-id">
+                
+                <div class="modal-body-scroll">
+                    <div class="detail-grid">
+                        <!-- Columna Izquierda: General -->
+                        <div class="detail-column">
+                            <div class="detail-section">
+                                <h4>📅 Información General</h4>
+                                <div class="form-group-row">
+                                    <div class="form-group flex-1">
+                                        <label>Fecha</label>
+                                        <input type="date" id="det-fecha" required disabled>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label>Parcela</label>
+                                        <select id="det-parcela" required disabled></select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo de Trabajo</label>
+                                    <select id="det-trabajo" required disabled></select>
+                                </div>
+                                <div class="form-group-row">
+                                    <div class="form-group flex-1">
+                                        <label>Operarios</label>
+                                        <input type="number" id="det-personas" min="1">
+                                    </div>
+                                    <div class="form-group flex-2">
+                                        <label>Nombres (opcional)</label>
+                                        <input type="text" id="det-nombres-personas" placeholder="Separados por comas">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Coste aproximado (€)</label>
+                                    <input type="number" id="det-coste" step="0.01">
+                                </div>
+                            </div>
+
+                            <div class="detail-section">
+                                <h4>📝 Observaciones</h4>
+                                <textarea id="det-notas" rows="3" placeholder="Notas adicionales..."></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha: Específicos -->
+                        <div class="detail-column">
+                            <!-- Sección Maquinaria -->
+                            <div class="detail-section" id="det-sec-maq">
+                                <h4>🚜 Maquinaria Utilizada</h4>
+                                <div class="form-group">
+                                    <label>Máquina</label>
+                                    <select id="det-maquinaria"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Duración (horas)</label>
+                                    <input type="number" id="det-horas" step="0.1">
+                                </div>
+                            </div>
+
+                            <!-- Sección Fito/Abono -->
+                            <div class="detail-section" id="det-sec-fito" style="display:none;">
+                                <h4>🧪 Tratamiento / Abonado</h4>
+                                <div class="form-group">
+                                    <label id="det-label-prod">Producto</label>
+                                    <input type="text" id="det-producto">
+                                </div>
+                                <div class="form-group-row">
+                                    <div class="form-group flex-1">
+                                        <label>Cantidad</label>
+                                        <input type="text" id="det-cantidad" placeholder="Ej: 5L o 50kg">
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label>Dosis / Ha</label>
+                                        <input type="text" id="det-dosis">
+                                    </div>
+                                </div>
+                                <div class="form-group-row">
+                                    <div class="form-group flex-1">
+                                        <label>Nº Reg. Fito</label>
+                                        <input type="text" id="det-reg-fito">
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label>Agua Riego (L)</label>
+                                        <input type="number" id="det-agua" step="1">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Plaga / Objetivo</label>
+                                    <input type="text" id="det-plaga" placeholder="Ej: Clytra, Psila, etc.">
+                                </div>
+                                <div class="form-group-row">
+                                    <div class="form-group flex-1">
+                                        <label>Aplicador</label>
+                                        <input type="text" id="det-aplicador">
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label>Nº Carnet</label>
+                                        <input type="text" id="det-carnet">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sección Cosecha -->
+                            <div class="detail-section" id="det-sec-cosecha" style="display:none;">
+                                <h4>🧺 Datos de Cosecha</h4>
+                                <div class="form-group-row">
+                                    <div class="form-group flex-1">
+                                        <label>KG Recolectados</label>
+                                        <input type="number" id="det-kg" step="0.01">
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label>Lote Trazabilidad</label>
+                                        <input type="text" id="det-lote">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Galería de Fotos del Registro -->
+                            <div class="detail-section">
+                                <h4>📷 Fotos Adjuntas</h4>
+                                <div id="det-photos-grid" class="det-photos-grid">
+                                    <!-- Dinámico -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-cancel-edit-record">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-pest-detail" class="modal-overlay" style="display:none; z-index: 10001;">
+        <div class="modal-content" style="max-width: 500px; border: 1px solid #ef5350;">
+            <div class="modal-header">
+                <h3 id="pest-modal-title">👾 Detalle de Plaga</h3>
+                <button type="button" class="btn-close" onclick="document.getElementById('modal-pest-detail').style.display='none'">×</button>
+            </div>
+            <div class="modal-body" style="padding: 20px; text-align: left;">
+                <div id="pest-modal-icon" style="font-size: 3rem; text-align: center; margin-bottom: 1rem;"></div>
+                <div id="pest-modal-desc" style="margin-bottom: 1.5rem; line-height: 1.6;"></div>
+                <div style="background: rgba(239, 83, 80, 0.1); padding: 15px; border-radius: 12px; border: 1px dashed #ef5350;">
+                    <h4 style="margin-top: 0; color: #ef5350;">💊 Tratamientos Recomendados</h4>
+                    <div id="pest-modal-treatments"></div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 15px; text-align: right;">
+                <button class="btn btn-primary" onclick="document.getElementById('modal-pest-detail').style.display='none'">Entendido</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications Container -->
     <div id="toast-container" class="toast-container"></div>
 </body>
+
 </html>

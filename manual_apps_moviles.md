@@ -85,4 +85,4 @@ Para una herramienta agrícola como Garuto, la PWA es ideal porque:
 Si de todas formas necesitas el archivo físico, la **Opción 1 (PWABuilder)** es tu mejor amiga.
 
 ---
-© 2026 </TheBrave> — Garuto Mobile Infrastructure Ready.
+© 2026 </JCGM.DEV> — Garuto Mobile Infrastructure Ready.
