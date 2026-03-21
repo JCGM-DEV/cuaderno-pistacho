@@ -150,6 +150,10 @@
                     <span class="nav-icon">📅</span>
                     <span class="nav-label">Planing</span>
                 </a>
+                <a href="#" class="nav-item" data-section="perfil" id="nav-perfil">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-label">Mi Perfil</span>
+                </a>
             </nav>
 
             <div class="sidebar-footer">
@@ -1321,6 +1325,70 @@
 
                 <div style="margin-top: 2rem; text-align: center;">
                     <p style="color: var(--text-muted);">Garuto v2026 — El futuro del campo en tus manos.</p>
+                </div>
+            </section>
+
+            <!-- ===== PERFIL / CONFIGURACIÓN ===== -->
+            <section class="content-section" id="section-perfil" style="display:none;">
+                <div class="section-header-premium animate-fade-in-up">
+                    <div class="section-title-block">
+                        <span class="section-subtitle">Configuración de la Explotación</span>
+                        <h2 class="section-title">👤 Mi Perfil y Datos Legales</h2>
+                    </div>
+                </div>
+
+                <div class="card animate-fade-in-up stagger-1">
+                    <form id="form-perfil-detallado">
+                        <div class="detail-grid">
+                            <div class="detail-col">
+                                <h3>📋 Datos de Identificación</h3>
+                                <div class="form-group">
+                                    <label>Nombre Completo / Razón Social</label>
+                                    <input type="text" id="perf-display-name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>NIF / NIE</label>
+                                    <input type="text" id="perf-nif" placeholder="Ej: 12345678Z">
+                                </div>
+                                <div class="form-group">
+                                    <label>Dirección Postal</label>
+                                    <textarea id="perf-direccion" rows="2" placeholder="Calle, Número, Localidad..."></textarea>
+                                </div>
+                            </div>
+                            <div class="detail-col">
+                                <h3>📜 Registros Oficiales</h3>
+                                <div class="form-group">
+                                    <label>Nº Registro Explotación (REA)</label>
+                                    <input type="text" id="perf-num-rea" placeholder="Ej: ES-13-...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Nº Maquinaria (ROMA)</label>
+                                    <input type="text" id="perf-num-roma" placeholder="Ej: 13-...">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email de Contacto</label>
+                                    <input type="email" id="perf-email">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="detail-section" style="margin-top: 2rem;">
+                            <h3>✍️ Firma Digital (Para Documentos)</h3>
+                            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.5rem;">Dibuja tu firma abajo. Se incrustará automáticamente en el Cuaderno de Explotación PDF.</p>
+                            <div style="border: 2px dashed var(--border-color); border-radius: 8px; background: white; position: relative;">
+                                <canvas id="signature-pad" width="600" height="200" style="width: 100%; height: 200px; cursor: crosshair;"></canvas>
+                                <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-signature" style="position: absolute; top: 10px; right: 10px;">
+                                    ✖ Borrar Firma
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Guardar Cambios en Perfil
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </section>
 

@@ -10,7 +10,7 @@ Garuto es una aplicación híbrida (PWA + Capacitor) diseñada para la gestión 
 
 ## 2. Estructura de Datos (MySQL)
 Las tablas principales son:
-- `usuarios`: Gestión de accesos y roles (admin/usuario).
+- `usuarios`: Gestión de accesos, roles y datos fiscales (NIF, Dirección, REA, ROMA).
 - `parcelas`: Información geográfica y catastral.
 - `trabajos`: Catálogo de tipos de labores (fito, abono, poda, etc.).
 - `registros`: Tabla central de actividad (vincula parcela, trabajo, maquinaria y fotos).

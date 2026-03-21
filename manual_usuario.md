@@ -21,9 +21,13 @@ En la pestaña **"Consultar"**, puedes ver todo tu historial de trabajos.
 - Gestiona tu stock de productos fitosanitarios y abonos.
 - Controla el mantenimiento y costes de tu maquinaria.
 
-## 5. Modo Offline
-- La aplicación funciona sin conexión. Si guardas un cambio sin internet, aparecerá un aviso de **"Modo Offline"**.
-- Los datos se sincronizarán automáticamente en cuanto recuperes la conexión.
+## 6. Mi Perfil y Firma Digital
+- Configura tus datos legales en la pestaña **"Mi Perfil"** (NIF, REA, ROMA, Dirección).
+- **Firma Digital**: Dibuja tu firma en el panel interactivo. Se guardará localmente y se usará para validar tus documentos oficiales.
+
+## 7. Generación de Cuaderno Oficial (PDF)
+- En la sección **"Consultar"**, usa el botón **"Generar Cuaderno Oficial"**.
+- Se descargará un PDF profesional con tus datos de titular, el registro de parcelas y todas las actividades filtradas, incluyendo tu firma digital al final.
 
 ---
 © 2026 Garuto — Cuaderno de Campo Digital

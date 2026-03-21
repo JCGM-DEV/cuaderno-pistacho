@@ -348,6 +348,7 @@ class GarutoApp {
         this._initMonthlyReminder();
         this._initConnectivity();
         this._initUnauthorizedHandler();
+        this._initSignaturePad();
         this._initPasswordManager();
     }
 
@@ -810,9 +811,8 @@ class GarutoApp {
                 this._updateDashboardHeader();
                 this._renderDashboard(); 
                 break;
-            case 'mercado':
-                this._renderMarket();
-                break;
+            case 'mercado': this._renderMercado(); break;
+            case 'perfil': this._renderProfile(); break;
             case 'parcelas': this._renderParcelas(); break;
             case 'trabajos': this._renderTrabajos(); break;
             case 'registrar': this._populateRegistroSelects(); break;
@@ -2706,6 +2706,23 @@ class GarutoApp {
                 this._saveRecordEdit();
             });
         }
+
+        // Perfil
+        const formPerfil = document.getElementById('form-perfil-detallado');
+        if (formPerfil) {
+            formPerfil.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this._saveProfile();
+            });
+        }
+        const btnClearSig = document.getElementById('btn-clear-signature');
+        if (btnClearSig) {
+            btnClearSig.addEventListener('click', () => {
+                const canvas = document.getElementById('signature-pad');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            });
+        }
     }
 
     async _populateFilterSelects() {
@@ -3054,6 +3071,96 @@ class GarutoApp {
         }
     }
 
+    // ---- Perfil & Firma ----
+    _initSignaturePad() {
+        const canvas = document.getElementById('signature-pad');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let painting = false;
+
+        function startPosition(e) {
+            painting = true;
+            draw(e);
+        }
+        function finishedPosition() {
+            painting = false;
+            ctx.beginPath();
+        }
+        function draw(e) {
+            if (!painting) return;
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#1a1a1a';
+
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+            const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        canvas.addEventListener('mousedown', startPosition);
+        canvas.addEventListener('mouseup', finishedPosition);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startPosition(e); });
+        canvas.addEventListener('touchend', finishedPosition);
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+    }
+
+    async _saveProfile() {
+        if (!this.currentUser) return;
+        const data = {
+            id: this.currentUser.id,
+            username: this.currentUser.username,
+            display_name: document.getElementById('perf-display-name').value,
+            nif: document.getElementById('perf-nif').value,
+            direccion: document.getElementById('perf-direccion').value,
+            num_rea: document.getElementById('perf-num-rea').value,
+            num_roma: document.getElementById('perf-num-roma').value,
+            email: document.getElementById('perf-email').value,
+            role: this.currentUser.role
+        };
+
+        try {
+            const res = await this.store._fetch('saveUser', {}, data);
+            if (res.success) {
+                this._toast('✅ Perfil actualizado correctamente', 'success');
+                const canvas = document.getElementById('signature-pad');
+                const signature = canvas.toDataURL();
+                localStorage.setItem('garuto_signature', signature);
+                Object.assign(this.currentUser, data);
+                if (document.getElementById('user-display-name-sidebar')) {
+                    document.getElementById('user-display-name-sidebar').textContent = data.display_name;
+                }
+            }
+        } catch (err) {
+            this._toast('Error al guardar perfil: ' + err.message, 'error');
+        }
+    }
+
+    _renderProfile() {
+        const u = this.currentUser;
+        if (!u) return;
+        document.getElementById('perf-display-name').value = u.displayName || u.display_name || '';
+        document.getElementById('perf-nif').value = u.nif || '';
+        document.getElementById('perf-direccion').value = u.direccion || '';
+        document.getElementById('perf-num-rea').value = u.num_rea || '';
+        document.getElementById('perf-num-roma').value = u.num_roma || '';
+        document.getElementById('perf-email').value = (u.email || '').replace('null', '');
+
+        const savedSig = localStorage.getItem('garuto_signature');
+        if (savedSig) {
+            const canvas = document.getElementById('signature-pad');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            img.onload = () => ctx.drawImage(img, 0, 0);
+            img.src = savedSig;
+        }
+    }
+
     async _generateOfficialPDF() {
         this._toast('⌛ Generando Cuaderno Oficial...', 'info');
         
@@ -3078,7 +3185,8 @@ class GarutoApp {
                     </div>
                     <div style="text-align:right;">
                         <p style="margin:0; font-weight:bold; font-size:12px;">Fecha Emisión: ${new Date().toLocaleDateString()}</p>
-                        <p style="margin:2px 0; font-size: 11px; color: #555;">Titular: ${this.currentUser.displayName}</p>
+                        <p style="margin:2px 0; font-size: 11px; color: #555;">Titular: ${this.currentUser.displayName} (${this.currentUser.nif || 'NIF no esp.'})</p>
+                        <p style="margin:2px 0; font-size: 10px; color: #777;">REA: ${this.currentUser.num_rea || '-'} | ROMA: ${this.currentUser.num_roma || '-'}</p>
                     </div>
                 </div>
 
@@ -3135,7 +3243,15 @@ class GarutoApp {
                         }).join('') : '<tr><td colspan="6" style="text-align:center; padding: 20px;">No hay registros históricos disponibles.</td></tr>'}
                     </tbody>
                 </table>
-                <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; color: #888; font-size: 9px;">
+                <div style="margin-top: 30px; display: flex; justify-content: flex-end; align-items: flex-end; gap: 20px;">
+                    <div style="text-align: center;">
+                        <p style="font-size: 10px; margin-bottom: 5px;">Firma del Titular:</p>
+                        <div style="border: 1px solid #ccc; width: 200px; height: 80px;">
+                            <img src="${document.getElementById('signature-pad').toDataURL()}" style="width: 100%; height: 100%; object-fit: contain;">
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; text-align: center; color: #888; font-size: 9px;">
                     Este documento es un extracto digital de la base de datos de Garuto — Pistachos de Calidad.<br>
                     Generado el ${new Date().toLocaleString()} por el usuario ${this.currentUser.displayName}.
                 </div>
@@ -4440,7 +4556,7 @@ class PistachinBot {
         this.quickActionsArea = document.getElementById('pistachin-quick-actions');
         this.alerts = [];
 
-        this._initEvents();
+        this._initEventListeners();
         
         // Carga inicial de alertas y sugerencias
         setTimeout(() => {

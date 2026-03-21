@@ -110,7 +110,11 @@ if ($action === 'login') {
             'id' => $user['id'],
             'username' => $user['username'],
             'displayName' => $user['display_name'],
-            'role' => $user['role']
+            'role' => $user['role'],
+            'nif' => $user['nif'],
+            'direccion' => $user['direccion'],
+            'num_rea' => $user['num_rea'],
+            'num_roma' => $user['num_roma']
         ];
         echo json_encode(['success' => true, 'user' => $_SESSION['user']]);
         exit;
@@ -205,6 +209,10 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
         $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
         if (!in_array('email', $cols)) { $db->exec("ALTER TABLE usuarios ADD email VARCHAR(100) NULL AFTER display_name"); }
         if (!in_array('telefono', $cols)) { $db->exec("ALTER TABLE usuarios ADD telefono VARCHAR(20) NULL AFTER email"); }
+        if (!in_array('nif', $cols)) { $db->exec("ALTER TABLE usuarios ADD nif VARCHAR(20) NULL AFTER telefono"); }
+        if (!in_array('direccion', $cols)) { $db->exec("ALTER TABLE usuarios ADD direccion TEXT NULL AFTER nif"); }
+        if (!in_array('num_rea', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_rea VARCHAR(50) NULL AFTER direccion"); }
+        if (!in_array('num_roma', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_roma VARCHAR(50) NULL AFTER num_rea"); }
     } catch (Exception $e) {}
 
     // 3. Garantizar Columnas en Registros (nombre_aplicador)
@@ -242,7 +250,7 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
     }
 
     if ($action === 'getUsers') {
-        $stmt = $db->query("SELECT id, username, display_name, role, email, telefono, created_at FROM usuarios ORDER BY id ASC");
+        $stmt = $db->query("SELECT id, username, display_name, role, email, telefono, nif, direccion, num_rea, num_roma, created_at FROM usuarios ORDER BY id ASC");
         echo json_encode(['success' => true, 'users' => $stmt->fetchAll()]);
         exit;
     }
@@ -256,6 +264,10 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
         $displayName = trim($input['display_name'] ?? '');
         $email = trim($input['email'] ?? '');
         $telefono = trim($input['telefono'] ?? '');
+        $nif = trim($input['nif'] ?? '');
+        $direccion = trim($input['direccion'] ?? '');
+        $num_rea = trim($input['num_rea'] ?? '');
+        $num_roma = trim($input['num_roma'] ?? '');
 
         if (!$username || !$displayName) {
             http_response_code(400);
@@ -265,12 +277,11 @@ if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser'
 
         if ($id) {
             if ($password) {
-                $hashed = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $db->prepare("UPDATE usuarios SET username = ?, password = ?, display_name = ?, role = ?, email = ?, telefono = ? WHERE id = ?");
-                $stmt->execute([$username, $hashed, $displayName, $role, $email, $telefono, $id]);
+                $stmt = $db->prepare("UPDATE usuarios SET username = ?, password = ?, display_name = ?, role = ?, email = ?, telefono = ?, nif = ?, direccion = ?, num_rea = ?, num_roma = ? WHERE id = ?");
+                $stmt->execute([$username, $hashed, $displayName, $role, $email, $telefono, $nif, $direccion, $num_rea, $num_roma, $id]);
             } else {
-                $stmt = $db->prepare("UPDATE usuarios SET username = ?, display_name = ?, role = ?, email = ?, telefono = ? WHERE id = ?");
-                $stmt->execute([$username, $displayName, $role, $email, $telefono, $id]);
+                $stmt = $db->prepare("UPDATE usuarios SET username = ?, display_name = ?, role = ?, email = ?, telefono = ?, nif = ?, direccion = ?, num_rea = ?, num_roma = ? WHERE id = ?");
+                $stmt->execute([$username, $displayName, $role, $email, $telefono, $nif, $direccion, $num_rea, $num_roma, $id]);
             }
         } else {
             if (!$password) {
