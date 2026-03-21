@@ -3081,11 +3081,10 @@ class GarutoApp {
 
         const resizeCanvas = () => {
             const rect = canvas.getBoundingClientRect();
-            // Solo redimensionar si es visible y tiene tamaño real
             if (rect.width > 0 && rect.height > 0) {
+                // Ajustar resolución interna al tamaño de pantalla
                 canvas.width = rect.width;
                 canvas.height = rect.height;
-                // Recargar firma si existía
                 const savedSig = localStorage.getItem('garuto_signature');
                 if (savedSig) {
                     const ctx = canvas.getContext('2d');
@@ -3096,40 +3095,48 @@ class GarutoApp {
             }
         };
 
-        // Redimensionar al inicio y al cambiar ventana
-        setTimeout(resizeCanvas, 500);
+        setTimeout(resizeCanvas, 300);
         window.addEventListener('resize', resizeCanvas);
 
         const ctx = canvas.getContext('2d');
         let painting = false;
 
-        function getPos(e) {
+        const getPos = (e) => {
             const rect = canvas.getBoundingClientRect();
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            let clientX, clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
             return {
                 x: clientX - rect.left,
                 y: clientY - rect.top
             };
-        }
+        };
 
         const startPosition = (e) => {
             painting = true;
             ctx.beginPath();
             const pos = getPos(e);
             ctx.moveTo(pos.x, pos.y);
+            // console.log('Firma iniciada en:', pos);
         };
 
         const finishedPosition = () => {
             painting = false;
+            ctx.closePath();
         };
 
         const draw = (e) => {
             if (!painting) return;
             const pos = getPos(e);
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 4;
             ctx.lineCap = 'round';
-            ctx.strokeStyle = '#2d382d'; // Un verde muy oscuro casi negro
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#000000';
 
             ctx.lineTo(pos.x, pos.y);
             ctx.stroke();
@@ -3143,14 +3150,13 @@ class GarutoApp {
         canvas.addEventListener('touchstart', (e) => { 
             if (e.target === canvas) e.preventDefault();
             startPosition(e); 
-        });
+        }, { passive: false });
         canvas.addEventListener('touchend', finishedPosition);
         canvas.addEventListener('touchmove', (e) => { 
             if (e.target === canvas) e.preventDefault();
             draw(e); 
-        });
+        }, { passive: false });
         
-        // Exponer para redimensionar cuando se muestre la sección
         this.resizeSignaturePad = resizeCanvas;
     }
 
