@@ -3330,7 +3330,7 @@ body::after {
     right: 25px;
     z-index: 3000;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse; /* Fix: Button at bottom, chat above it */
     align-items: flex-end;
     gap: 1rem;
     pointer-events: none;
