@@ -4783,14 +4783,15 @@ body::before {
     gap: 1.5rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
     .dashboard-action-layer {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         gap: 1rem;
         padding: 0 1rem;
     }
-    .greeting-text {
-        font-size: 1.5rem;
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.8rem;
     }
 }
 
@@ -4803,16 +4804,27 @@ body::before {
     font-size: 0.95rem;
 }
 
+.market-card {
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+}
+
+.market-card canvas {
+    flex: 1;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 200px;
+}
+
 .market-price.up { color: #81c784; font-weight: bold; }
 .market-price.down { color: #ef5350; font-weight: bold; }
 .market-price.stable { color: var(--text-secondary); }
 
 .historical-insight-card {
-    grid-column: span 1 !important; /* Force span 1 in the new grid */
+    grid-column: span 1 !important;
     margin-top: 0 !important;
-    height: 100%;
-    display: flex;
-    align-items: center;
+    min-height: 120px;
 }
 
 #pest-alerts-container {

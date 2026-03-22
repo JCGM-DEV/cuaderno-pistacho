@@ -3896,29 +3896,68 @@ class GarutoApp {
 
     _renderMarketChart() {
         const canvas = document.getElementById('market-trend-chart');
-        if (!canvas) return;
+        if (!canvas) {
+            console.warn("Market chart canvas not found");
+            return;
+        }
 
-        if (this.marketChart) this.marketChart.destroy();
+        try {
+            if (this.marketChart) this.marketChart.destroy();
 
-        this.marketChart = new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                datasets: [{
-                    label: 'Pistacho Kerman (€/kg)',
-                    data: [5.8, 6.0, 6.2, 6.1, 6.3, 6.45],
-                    borderColor: '#a3d65e',
-                    backgroundColor: 'rgba(163, 214, 94, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: false, grid: { color: 'rgba(255,255,255,0.05)' } } }
+            this.marketChart = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Pistacho Kerman (€/kg)',
+                        data: [5.8, 6.0, 6.2, 6.1, 6.3, 6.45],
+                        borderColor: '#a3d65e',
+                        backgroundColor: 'rgba(163, 214, 94, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { beginAtZero: false, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+                        x: { grid: { display: false }, ticks: { color: '#888' } }
+                    }
+                }
+            });
+        } catch (err) {
+            console.error("Error rendering market chart:", err);
+        }
+    }
+
+    async _renderRegistrarSelects() {
+        try {
+            const inventario = await this.store.getAll('inventario');
+            
+            // 1. Selector de Fitosanitarios
+            const selectFito = document.getElementById('reg-fito-inventario');
+            if (selectFito) {
+                const currentVal = selectFito.value;
+                selectFito.innerHTML = '<option value="">-- Elige del inventario o escribe abajo --</option>' + 
+                    inventario.filter(i => i.tipo === 'fitosanitario' || i.tipo === 'herbicida').map(i => 
+                        `<option value="${this._escapeHTML(i.nombre)}" ${i.nombre === currentVal ? 'selected' : ''}>${this._escapeHTML(i.nombre)} (${i.stock} ${i.unidad})</option>`
+                    ).join('');
             }
-        });
+
+            // 2. Selector de Fertilizantes
+            const selectAbono = document.getElementById('reg-abono-inventario');
+            if (selectAbono) {
+                const currentVal = selectAbono.value;
+                selectAbono.innerHTML = '<option value="">-- Elige del inventario o escribe abajo --</option>' + 
+                    inventario.filter(i => i.tipo === 'abono').map(i => 
+                        `<option value="${this._escapeHTML(i.nombre)}" ${i.nombre === currentVal ? 'selected' : ''}>${this._escapeHTML(i.nombre)} (${i.stock} ${i.unidad})</option>`
+                    ).join('');
+            }
+        } catch (err) {
+            console.error("Error rendering registrar selects:", err);
+        }
     }
 
     // ===============================
