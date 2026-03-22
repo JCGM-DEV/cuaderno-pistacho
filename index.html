@@ -23,7 +23,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="stylesheet" href="index.css?v=G7">
+    <link rel="stylesheet" href="index.css?v=G8">
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -34,18 +34,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
     
     <!-- App -->
-    <script src="app_v3.js?v=G7" defer></script>
+    <script src="app_v3.js?v=G8" defer></script>
 </head>
 
 <body>
     <!-- Script para forzar limpieza de Service Worker antiguo -->
     <script>
-        if ('serviceWorker' in navigator && !localStorage.getItem('sw_cleaned_vG7')) {
+        if ('serviceWorker' in navigator && !localStorage.getItem('sw_cleaned_vG8')) {
             navigator.serviceWorker.getRegistrations().then(function (registrations) {
                 for(let registration of registrations) {
                     registration.unregister();
                 }
-                localStorage.setItem('sw_cleaned_vG7', '1');
+                localStorage.setItem('sw_cleaned_vG8', '1');
                 window.location.reload(true);
             });
         }

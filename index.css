@@ -3326,8 +3326,8 @@ body::after {
 }
 .pistachin-wrapper {
     position: fixed;
-    bottom: 4.5rem;
-    right: 1.5rem;
+    bottom: 25px;
+    right: 25px;
     z-index: 3000;
     display: flex;
     flex-direction: column;
