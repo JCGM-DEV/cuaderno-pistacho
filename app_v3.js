@@ -521,7 +521,7 @@ class GarutoApp {
             const [fin, maq, alm, p, r] = await Promise.all([
                 this.store.getAll('finanzas'),
                 this.store.getAll('maquinaria'),
-                this.store.getAll('almacen'),
+                this.store.getAll('inventario'),
                 this.store.getAll('parcelas'),
                 this.store.getAll('registros')
             ]);
