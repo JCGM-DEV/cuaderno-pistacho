@@ -681,6 +681,28 @@ h4 {
     background-clip: text;
 }
 
+.mobile-user-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 2px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    margin-left: auto;
+    max-width: 140px;
+    overflow: hidden;
+}
+
+.mobile-user-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ---- Main Content ---- */
 .main-content {
     flex: 1;
@@ -4830,12 +4852,86 @@ body::before {
 #pest-alerts-container {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: 1rem;
 }
 
-/* Adjusting alert card for the new grid */
+/* Pest Alert Cards */
 .pest-alert-card {
-    margin: 0 !important;
+    background: var(--glass-bg);
+    border: 1px solid rgba(239, 83, 80, 0.3);
+    border-left: 4px solid #ef5350;
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease;
+}
+
+.pest-alert-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.pest-alert-icon {
+    font-size: 2rem;
+    min-width: 50px;
+    height: 50px;
+    background: rgba(239, 83, 80, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pest-alert-content {
+    flex: 1;
+}
+
+.pest-alert-content h4 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+    color: #ef5350;
+}
+
+.pest-alert-content p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.pest-alert-action {
+    background: #ef5350;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s ease;
+}
+
+.pest-alert-action:hover {
+    background: #d32f2f;
+}
+
+@media (max-width: 480px) {
+    .pest-alert-card {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    .pest-alert-action {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
 }
 
 
