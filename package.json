@@ -18,7 +18,10 @@
   },
   "homepage": "https://github.com/cgarrido10646/cuaderno-pistacho#readme",
   "dependencies": {
-    "@capacitor/core": "^8.2.0"
+    "@capacitor/core": "^8.2.0",
+    "basic-ftp": "^5.2.0",
+    "dotenv": "^17.3.1",
+    "ftp-deploy": "^2.4.7"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.2.0"

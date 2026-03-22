@@ -24,7 +24,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <link rel="stylesheet" href="index.css?v=G10">
-    
+
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -32,7 +32,7 @@
     <script src="https://unpkg.com/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-    
+
     <!-- App -->
     <script src="app_v3.js?v=G10" defer></script>
 </head>
@@ -42,7 +42,7 @@
     <script>
         if ('serviceWorker' in navigator && !localStorage.getItem('sw_cleaned_vG10')) {
             navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                for(let registration of registrations) {
+                for (let registration of registrations) {
                     registration.unregister();
                 }
                 localStorage.setItem('sw_cleaned_vG10', '1');
@@ -650,8 +650,11 @@
                                 <div class="form-group">
                                     <label for="reg-fito-nregistro">Nº Registro MITECO / Barras</label>
                                     <div style="display: flex; gap: 5px;">
-                                        <input type="text" id="reg-fito-nregistro" placeholder="Ej: 12345" style="flex: 1;">
-                                        <button type="button" class="btn btn-ghost" id="btn-scan-fito" title="Escanear Código de Barras" style="border: 1px solid var(--primary);">📸 Escanear</button>
+                                        <input type="text" id="reg-fito-nregistro" placeholder="Ej: 12345"
+                                            style="flex: 1;">
+                                        <button type="button" class="btn btn-ghost" id="btn-scan-fito"
+                                            title="Escanear Código de Barras"
+                                            style="border: 1px solid var(--primary);">📸 Escanear</button>
                                     </div>
                                 </div>
                             </div>
@@ -916,9 +919,10 @@
 
                     <!-- Year tabs + photo grid -->
                     <div id="gallery-years-tabs" class="year-tabs-container"></div>
-                    
+
                     <div id="comparison-view" class="premium-card" style="display: none; margin-bottom: 2rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h4>🔄 Comparativa de Evolución</h4>
                             <button class="btn btn-ghost" onclick="app._toggleGalleryComparison()">Cancelar</button>
                         </div>
@@ -1091,7 +1095,7 @@
 
                         <p
                             style="color:var(--text-secondary); font-size: 0.9rem; margin-top: 2rem; margin-bottom: 1.5rem;">
-                            Recuperar el sistema completo a partir de una copia de seguridad (Archivo JSON). 
+                            Recuperar el sistema completo a partir de una copia de seguridad (Archivo JSON).
                             <b style="color:#ef5350;">¡Atención: Esto sobrescribirá todos los datos actuales!</b>
                         </p>
                         <button class="btn btn-ghost btn-full" id="btn-import"
@@ -1355,7 +1359,8 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Dirección Postal</label>
-                                    <textarea id="perf-direccion" rows="2" placeholder="Calle, Número, Localidad..."></textarea>
+                                    <textarea id="perf-direccion" rows="2"
+                                        placeholder="Calle, Número, Localidad..."></textarea>
                                 </div>
                             </div>
                             <div class="detail-col">
@@ -1377,10 +1382,14 @@
 
                         <div class="detail-section" style="margin-top: 2rem;">
                             <h3>✍️ Firma Digital (Para Documentos)</h3>
-                            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.5rem;">Dibuja tu firma abajo. Se incrustará automáticamente en el Cuaderno de Explotación PDF.</p>
-                            <div style="border: 2px dashed var(--border-color); border-radius: 8px; background: white; position: relative;">
-                                <canvas id="signature-pad" width="600" height="200" style="width: 100%; height: 200px; cursor: crosshair;"></canvas>
-                                <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-signature" style="position: absolute; top: 10px; right: 10px;">
+                            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 0.5rem;">Dibuja tu firma
+                                abajo. Se incrustará automáticamente en el Cuaderno de Explotación PDF.</p>
+                            <div
+                                style="border: 2px dashed var(--border-color); border-radius: 8px; background: white; position: relative;">
+                                <canvas id="signature-pad" width="600" height="200"
+                                    style="width: 100%; height: 200px; cursor: crosshair;"></canvas>
+                                <button type="button" class="btn btn-ghost btn-sm" id="btn-clear-signature"
+                                    style="position: absolute; top: 10px; right: 10px;">
                                     ✖ Borrar Firma
                                 </button>
                             </div>
@@ -1468,7 +1477,9 @@
                         <button class="btn btn-primary" id="btn-nueva-venta">
                             <span>🌾</span> Registrar Venta
                         </button>
-                        <button class="btn btn-ghost" id="btn-show-trace-qr" style="border: 1px dashed var(--primary); margin-left: 0.5rem;" title="Generar QR de Trazabilidad (Demo)">
+                        <button class="btn btn-ghost" id="btn-show-trace-qr"
+                            style="border: 1px dashed var(--primary); margin-left: 0.5rem;"
+                            title="Generar QR de Trazabilidad (Demo)">
                             <span>📦</span> Generar QR Demo
                         </button>
                     </div>
@@ -1542,7 +1553,7 @@
                         <canvas id="market-trend-chart"></canvas>
                     </div>
                 </div>
-                
+
                 <div class="premium-card animate-fade-in-up" style="margin-top: 2rem; animation-delay: 0.2s;">
                     <h3>💡 Consejos de Venta (Pistachín AI)</h3>
                     <p id="market-advice">Cargando sugerencias del mercado...</p>
@@ -1552,8 +1563,8 @@
             <!-- FOOTER -->
             <footer class="main-footer">
                 <p>&copy;
-                    <script>document.write(new Date().getFullYear())</script> <a href="https://tituta.es/JCGM.DEV/"
-                        target="_blank" rel="noopener noreferrer">&lt;/jcgm.dev&gt;</a>. Todos los derechos reservados.
+                    <script>document.write(new Date().getFullYear())</script> <a href="https://jcgm.dev" target="_blank"
+                        rel="noopener noreferrer">&lt;/jcgm.dev&gt;</a>. Todos los derechos reservados.
                 </p>
             </footer>
 
@@ -1981,7 +1992,8 @@
                 <h3>📸 Escáner de Fitosanitarios</h3>
                 <button type="button" class="btn-close" id="btn-close-scanner">×</button>
             </div>
-            <div id="scanner-reader" style="width: 100%; min-height: 250px; background: #000; border-radius: 8px;"></div>
+            <div id="scanner-reader" style="width: 100%; min-height: 250px; background: #000; border-radius: 8px;">
+            </div>
             <p style="text-align: center; margin-top: 10px; font-size: 13px;">Enfoca el código de barras del envase</p>
         </div>
     </div>
@@ -2004,10 +2016,10 @@
                 </div>
                 <button type="button" class="btn-close-premium" id="btn-close-record-detail">×</button>
             </div>
-            
+
             <form id="form-edit-record" class="record-detail-form">
                 <input type="hidden" id="det-id">
-                
+
                 <div class="modal-body-scroll">
                     <div class="detail-grid">
                         <!-- Columna Izquierda: General -->
@@ -2148,18 +2160,21 @@
         <div class="modal-content" style="max-width: 500px; border: 1px solid #ef5350;">
             <div class="modal-header">
                 <h3 id="pest-modal-title">👾 Detalle de Plaga</h3>
-                <button type="button" class="btn-close" onclick="document.getElementById('modal-pest-detail').style.display='none'">×</button>
+                <button type="button" class="btn-close"
+                    onclick="document.getElementById('modal-pest-detail').style.display='none'">×</button>
             </div>
             <div class="modal-body" style="padding: 20px; text-align: left;">
                 <div id="pest-modal-icon" style="font-size: 3rem; text-align: center; margin-bottom: 1rem;"></div>
                 <div id="pest-modal-desc" style="margin-bottom: 1.5rem; line-height: 1.6;"></div>
-                <div style="background: rgba(239, 83, 80, 0.1); padding: 15px; border-radius: 12px; border: 1px dashed #ef5350;">
+                <div
+                    style="background: rgba(239, 83, 80, 0.1); padding: 15px; border-radius: 12px; border: 1px dashed #ef5350;">
                     <h4 style="margin-top: 0; color: #ef5350;">💊 Tratamientos Recomendados</h4>
                     <div id="pest-modal-treatments"></div>
                 </div>
             </div>
             <div class="modal-footer" style="padding: 15px; text-align: right;">
-                <button class="btn btn-primary" onclick="document.getElementById('modal-pest-detail').style.display='none'">Entendido</button>
+                <button class="btn btn-primary"
+                    onclick="document.getElementById('modal-pest-detail').style.display='none'">Entendido</button>
             </div>
         </div>
     </div>
