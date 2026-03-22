@@ -37,12 +37,18 @@ if (!$isAuthenticated) {
 
 // Procedemos con la actualización
 chdir(__DIR__);
+// Forzamos el HOME para que git sepa dónde buscar credenciales si hace falta
+putenv('HOME=' . __DIR__);
 $output = shell_exec('git reset --hard HEAD 2>&1 && git pull origin main 2>&1');
 
-// Guardar registro (log) de la acción por seguridad (sin mostrar en pantalla los fallos de servidor)
-$logOutput = "[" . date('Y-m-d H:i:s') . "] Nuevo despliegue ejecutado por " . ($urlToken ? "URL Manual" : "GitHub Webhook") . ".\n=== Log ===\n$output\n==========================\n\n";
+// Guardar registro (log) de la acción por seguridad
+$logOutput = "[" . date('Y-m-d H:i:s') . "] Nuevo despliegue ejecutado.\n=== Log ===\n$output\n==========================\n\n";
 file_put_contents('deploy_log.txt', $logOutput, FILE_APPEND);
 
-echo "<h2>✅ Despliegue de Garuto Completado</h2>";
-echo "<p>El servidor de Hostalia ha sincronizado correctamente la última versión desde GitHub.</p>";
+echo "<h2>⚙️ Intento de Despliegue de Garuto</h2>";
+echo "<h3>Respuesta del Servidor (Git Log):</h3>";
+echo "<pre style='background:#111; color:#0f0; padding:15px; border-radius:8px; overflow-x:auto;'>";
+echo htmlentities(trim($output) ? $output : "No hay salida. Es posible que shell_exec() esté deshabilitado en este servidor (Hostalia).");
+echo "</pre>";
+echo "<p>Por favor, pásame el texto verde de arriba para que pueda ver el error exacto y solucionarlo.</p>";
 ?>
