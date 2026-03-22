@@ -62,6 +62,74 @@ function getDB() {
     return $pdo;
 }
 
+function ensureSchema($db) {
+    // 1. Garantizar Tablas
+    $db->exec("CREATE TABLE IF NOT EXISTS usuarios (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        display_name VARCHAR(100),
+        role ENUM('admin', 'usuario') DEFAULT 'usuario',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+    
+    $db->exec("CREATE TABLE IF NOT EXISTS inventario (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        tipo VARCHAR(50),
+        stock DECIMAL(10,2) DEFAULT 0,
+        unidad VARCHAR(50) DEFAULT 'unidades',
+        ubicacion VARCHAR(255),
+        precio_unidad DECIMAL(10,2) DEFAULT 0.00
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // 2. Garantizar Columnas (Compatibilidad con MySQL < 8.0.19)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM usuarios");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('email', $cols)) { $db->exec("ALTER TABLE usuarios ADD email VARCHAR(100) NULL AFTER display_name"); }
+        if (!in_array('telefono', $cols)) { $db->exec("ALTER TABLE usuarios ADD telefono VARCHAR(20) NULL AFTER email"); }
+        if (!in_array('nif', $cols)) { $db->exec("ALTER TABLE usuarios ADD nif VARCHAR(20) NULL AFTER telefono"); }
+        if (!in_array('direccion', $cols)) { $db->exec("ALTER TABLE usuarios ADD direccion TEXT NULL AFTER nif"); }
+        if (!in_array('num_rea', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_rea VARCHAR(50) NULL AFTER direccion"); }
+        if (!in_array('num_roma', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_roma VARCHAR(50) NULL AFTER num_rea"); }
+    } catch (Exception $e) {}
+
+    // 3. Garantizar Columnas en Registros (nombre_aplicador)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM registros");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('nombre_aplicador', $cols)) { 
+            $db->exec("ALTER TABLE registros ADD nombre_aplicador VARCHAR(255) NULL AFTER carnet_aplicador"); 
+        }
+    } catch (Exception $e) {}
+
+    // 4. Garantizar Columnas en Inventario (tipo enum fix y columnas extra)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM inventario");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_ASSOC);
+        $foundPrecio = false;
+        $foundUbicacion = false;
+        $foundUnidad = false;
+        foreach ($cols as $col) {
+            if ($col['Field'] === 'precio_unidad') $foundPrecio = true;
+            if ($col['Field'] === 'ubicacion') $foundUbicacion = true;
+            if ($col['Field'] === 'unidad') $foundUnidad = true;
+            if ($col['Field'] === 'tipo') {
+                if (strpos($col['Type'], 'enum') !== false && strpos($col['Type'], 'herbicida') === false) {
+                    $newType = str_replace(")", ",'herbicida')", $col['Type']);
+                    $db->exec("ALTER TABLE inventario MODIFY COLUMN tipo $newType");
+                }
+            }
+        }
+        if (!$foundUnidad) { $db->exec("ALTER TABLE inventario ADD unidad VARCHAR(50) DEFAULT 'unidades'"); }
+        if (!$foundUbicacion) { $db->exec("ALTER TABLE inventario ADD ubicacion VARCHAR(255) NULL"); }
+        if (!$foundPrecio) { $db->exec("ALTER TABLE inventario ADD precio_unidad DECIMAL(10,2) DEFAULT 0.00"); }
+    } catch (Exception $e) {
+        error_log("DB INIT ERROR (Inventario): " . $e->getMessage());
+    }
+}
+
 // ---- Validar colección (tabla) permitida ----
 function validCollection($name) {
     $allowed = ['parcelas', 'trabajos', 'registros', 'fotos', 'planing_progreso', 'inventario', 'maquinaria', 'documentacion', 'maquinaria_reparaciones', 'finanzas', 'cosechas_ventas'];
@@ -178,76 +246,12 @@ if ($action === 'changePassword') {
     exit;
 }
 
-// ---- Gestión de Usuarios (Admin) ----
+// Maintenance moved to global or function
+$db = getDB();
+ensureSchema($db);
+
 if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser') {
     checkAdmin();
-    $db = getDB();
-    
-    // 1. Garantizar Tablas
-    $db->exec("CREATE TABLE IF NOT EXISTS usuarios (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        display_name VARCHAR(100),
-        role ENUM('admin', 'usuario') DEFAULT 'usuario',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-    
-    $db->exec("CREATE TABLE IF NOT EXISTS inventario (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        nombre VARCHAR(255) NOT NULL,
-        tipo VARCHAR(50),
-        stock DECIMAL(10,2) DEFAULT 0,
-        unidad VARCHAR(50) DEFAULT 'unidades',
-        ubicacion VARCHAR(255),
-        precio_unidad DECIMAL(10,2) DEFAULT 0.00
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
-
-    // 2. Garantizar Columnas (Compatibilidad con MySQL < 8.0.19)
-    try {
-        $stmtCol = $db->query("SHOW COLUMNS FROM usuarios");
-        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
-        if (!in_array('email', $cols)) { $db->exec("ALTER TABLE usuarios ADD email VARCHAR(100) NULL AFTER display_name"); }
-        if (!in_array('telefono', $cols)) { $db->exec("ALTER TABLE usuarios ADD telefono VARCHAR(20) NULL AFTER email"); }
-        if (!in_array('nif', $cols)) { $db->exec("ALTER TABLE usuarios ADD nif VARCHAR(20) NULL AFTER telefono"); }
-        if (!in_array('direccion', $cols)) { $db->exec("ALTER TABLE usuarios ADD direccion TEXT NULL AFTER nif"); }
-        if (!in_array('num_rea', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_rea VARCHAR(50) NULL AFTER direccion"); }
-        if (!in_array('num_roma', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_roma VARCHAR(50) NULL AFTER num_rea"); }
-    } catch (Exception $e) {}
-
-    // 3. Garantizar Columnas en Registros (nombre_aplicador)
-    try {
-        $stmtCol = $db->query("SHOW COLUMNS FROM registros");
-        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
-        if (!in_array('nombre_aplicador', $cols)) { 
-            $db->exec("ALTER TABLE registros ADD nombre_aplicador VARCHAR(255) NULL AFTER carnet_aplicador"); 
-        }
-    } catch (Exception $e) {}
-
-    // 4. Garantizar Columnas en Inventario (tipo enum fix y columnas extra)
-    try {
-        $stmtCol = $db->query("SHOW COLUMNS FROM inventario");
-        $cols = $stmtCol->fetchAll(PDO::FETCH_ASSOC);
-        $foundPrecio = false;
-        $foundUbicacion = false;
-        $foundUnidad = false;
-        foreach ($cols as $col) {
-            if ($col['Field'] === 'precio_unidad') $foundPrecio = true;
-            if ($col['Field'] === 'ubicacion') $foundUbicacion = true;
-            if ($col['Field'] === 'unidad') $foundUnidad = true;
-            if ($col['Field'] === 'tipo') {
-                if (strpos($col['Type'], 'enum') !== false && strpos($col['Type'], 'herbicida') === false) {
-                    $newType = str_replace(")", ",'herbicida')", $col['Type']);
-                    $db->exec("ALTER TABLE inventario MODIFY COLUMN tipo $newType");
-                }
-            }
-        }
-        if (!$foundUnidad) { $db->exec("ALTER TABLE inventario ADD unidad VARCHAR(50) DEFAULT 'unidades'"); }
-        if (!$foundUbicacion) { $db->exec("ALTER TABLE inventario ADD ubicacion VARCHAR(255) NULL"); }
-        if (!$foundPrecio) { $db->exec("ALTER TABLE inventario ADD precio_unidad DECIMAL(10,2) DEFAULT 0.00"); }
-    } catch (Exception $e) {
-        error_log("DB INIT ERROR (Inventario): " . $e->getMessage());
-    }
 
     if ($action === 'getUsers') {
         $stmt = $db->query("SELECT id, username, display_name, role, email, telefono, nif, direccion, num_rea, num_roma, created_at FROM usuarios ORDER BY id ASC");

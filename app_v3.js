@@ -3866,6 +3866,62 @@ class GarutoApp {
     // ===============================
 
     // ===============================
+    // MERCADO (PRECIOS Y TENDENCIAS)
+    // ===============================
+    async _renderMercado() {
+        const pricesList = document.getElementById('market-prices-list');
+        const adviceEl = document.getElementById('market-advice');
+        if (!pricesList) return;
+
+        // Datos simulados (Fase 3)
+        const data = [
+            { n: 'Kerman (Pistacho)', p: '6.45', t: 'up' },
+            { n: 'Larnaka (Pistacho)', p: '7.10', t: 'stable' },
+            { n: 'Sirora (Pistacho)', p: '6.80', t: 'down' }
+        ];
+
+        pricesList.innerHTML = data.map(i => `
+            <div class="market-item">
+                <span>${i.n}</span>
+                <span class="market-price ${i.t}">${i.p}€/kg ${i.t === 'up' ? '📈' : i.t === 'down' ? '📉' : '➖'}</span>
+            </div>
+        `).join('');
+
+        if (adviceEl) {
+            adviceEl.innerHTML = `Pistachín AI dice: El mercado de <b>Larnaka</b> está fuerte. Si tienes stock, es buen momento para cerrar tratos.`;
+        }
+
+        this._renderMarketChart();
+    }
+
+    _renderMarketChart() {
+        const canvas = document.getElementById('market-trend-chart');
+        if (!canvas) return;
+
+        if (this.marketChart) this.marketChart.destroy();
+
+        this.marketChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Pistacho Kerman (€/kg)',
+                    data: [5.8, 6.0, 6.2, 6.1, 6.3, 6.45],
+                    borderColor: '#a3d65e',
+                    backgroundColor: 'rgba(163, 214, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: false, grid: { color: 'rgba(255,255,255,0.05)' } } }
+            }
+        });
+    }
+
+    // ===============================
     // ALMACÉN
     // ===============================
     async _addAlmacen() {
