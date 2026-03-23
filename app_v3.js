@@ -19,6 +19,7 @@ class DataStore {
     constructor(apiUrl) {
         this.apiUrl = apiUrl;
         this.queue = JSON.parse(localStorage.getItem('garuto_sync_queue') || '[]');
+        this.csrfToken = ''; // Will be set on login/checkSession
         
         // Auto-sync when online
         window.addEventListener('online', () => this.processQueue());
@@ -45,8 +46,13 @@ class DataStore {
 
         const options = { 
             method: (body || action === 'uploadDoc' || action === 'uploadPhoto') ? 'POST' : 'GET',
-            credentials: 'include'
+            credentials: 'include',
+            headers: {}
         };
+
+        if (this.csrfToken) {
+            options.headers['X-CSRF-Token'] = this.csrfToken;
+        }
         
         if (body instanceof FormData) {
             options.body = body;
@@ -132,8 +138,13 @@ class DataStore {
         
         const options = { 
             method: (body || action === 'uploadDoc' || action === 'uploadPhoto') ? 'POST' : 'GET',
-            credentials: 'include'
+            credentials: 'include',
+            headers: {}
         };
+
+        if (this.csrfToken) {
+            options.headers['X-CSRF-Token'] = this.csrfToken;
+        }
 
         if (body instanceof FormData) {
             options.body = body;
@@ -178,6 +189,11 @@ class DataStore {
 
     async importJSON(jsonData) {
         return this._fetch('import', {}, jsonData);
+    }
+
+    async exportSIEX() {
+        const url = `${this.apiUrl}?action=exportSIEX`;
+        window.location.href = url; // Standard download
     }
 }
 
@@ -619,6 +635,7 @@ class GarutoApp {
             const res = await this.store._fetch('checkSession');
             if (res.authenticated) {
                 this.currentUser = res.user;
+                this.store.csrfToken = res.csrfToken;
                 this._showApp();
             } else {
                 this._handleLogout();
@@ -642,6 +659,7 @@ class GarutoApp {
             const res = await this.store._fetch('login', {}, { username, password });
             if (res.success) {
                 this.currentUser = res.user;
+                this.store.csrfToken = res.csrfToken;
                 errorEl.hidden = true;
                 this._showApp();
             }
@@ -665,6 +683,7 @@ class GarutoApp {
         } catch (e) {}
 
         this.currentUser = null;
+        this.store.csrfToken = '';
 
         const appEl = document.getElementById('app');
         appEl.hidden = true;
@@ -1439,6 +1458,7 @@ class GarutoApp {
             if (!res.ok) throw new Error('Error al obtener el clima');
             
             const data = await res.json();
+            this.latestWeather = data; // Store for Pistachín
             const current = data.current;
             const daily = data.daily;
             
@@ -3034,44 +3054,7 @@ class GarutoApp {
     }
 
     async _exportSIEX() {
-        try {
-            const [registros, parcelas, trabajos] = await Promise.all([
-                this.store.getAll('registros'),
-                this.store.getAll('parcelas'),
-                this.store.getAll('trabajos')
-            ]);
-
-            const siexData = registros.map(r => {
-                const p = parcelas.find(par => par.id == r.parcelaId);
-                const t = trabajos.find(trab => trab.id == r.trabajoId);
-                return {
-                    fecha: r.fecha,
-                    parcela: p ? p.nombre : 'Desconocida',
-                    referencia_sigpac: p ? p.referencia_sigpac : '',
-                    actividad: t ? t.nombre : 'Desconocida',
-                    tipo_legal: t ? t.tipo_legal : 'general',
-                    producto: r.producto_fito || r.nutrientes || '',
-                    n_registro: r.num_registro_fito || '',
-                    dosis: r.dosis || r.cantidad_abono || '',
-                    cantidad: r.cantidad_usada || '',
-                    aplicador: r.nombre_aplicador || '',
-                    n_carnet: r.carnet_aplicador || '',
-                    notas: r.notas || ''
-                };
-            });
-
-            const json = JSON.stringify(siexData, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `export-siex-garuto-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            this._toast('✅ Exportación SIEX generada correctamente', 'success');
-        } catch (err) {
-            this._toast('Error en exportación SIEX: ' + err.message, 'error');
-        }
+        this.store.exportSIEX();
     }
 
     // ---- Perfil & Firma ----
@@ -4779,12 +4762,37 @@ class PistachinBot {
             this.alerts = [];
 
             // 1. Alerta de Stock
-            const lowStock = inventario.filter(i => parseFloat(i.stock) < 10);
+            const lowStock = inventario.filter(i => parseFloat(i.cantidad || i.stock) < 5);
             if (lowStock.length > 0) {
                 this.alerts.push({
-                    type: 'stock',
-                    msg: `⚠️ **Aviso de Almacén**: Tienes poco stock de ${lowStock.length} productos. Especialmente <b>${lowStock[0].nombre}</b>.`
+                    type: 'warning',
+                    msg: `📉 <b>Bajo stock</b>: Tienes ${lowStock.length} productos con pocas unidades (ej: ${lowStock[0].nombre}).`
                 });
+            }
+
+            // 2. Alerta de Clima (Integración nueva)
+            if (this.app.latestWeather) {
+                const cur = this.app.latestWeather.current;
+                const rainProb = this.app.latestWeather.hourly.precipitation_probability[0];
+                
+                if (rainProb > 50) {
+                    this.alerts.push({
+                        type: 'weather',
+                        msg: `🌧️ <b>Alerta de Lluvia</b>: Se espera un ${rainProb}% de probabilidad. Pospón tratamientos foliares.`
+                    });
+                }
+                if (cur.temperature_2m > 35) {
+                    this.alerts.push({
+                        type: 'weather',
+                        msg: `🔥 <b>Calor Extremo</b>: ${Math.round(cur.temperature_2m)}°C. Vigila el estrés hídrico.`
+                    });
+                }
+                if (cur.wind_speed_10m > 25) {
+                    this.alerts.push({
+                        type: 'weather',
+                        msg: `💨 <b>Viento Fuerte</b>: ${Math.round(cur.wind_speed_10m)} km/h. No apliques fitosanitarios.`
+                    });
+                }
             }
 
             // 2. Alerta de Tarea Pendiente (Planing)

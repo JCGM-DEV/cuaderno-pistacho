@@ -1,32 +1,51 @@
-# Manual Técnico — Garuto (Arquitectura y Despliegue)
-
-Garuto es una aplicación híbrida (PWA + Capacitor) diseñada para la gestión agrícola de pistachos.
-
-## 1. Stack Tecnológico
-- **Frontend**: HTML5, CSS3 (Vanilla), JavaScript (ES6+).
-- **Backend**: API REST en PHP 7.4+.
-- **Base de Datos**: MySQL / MariaDB.
-- **Mobile**: Capacitor JS para empaquetado nativo (Android/iOS).
-
-## 2. Estructura de Datos (MySQL)
-Las tablas principales son:
-- `usuarios`: Gestión de accesos, roles y datos fiscales (NIF, Dirección, REA, ROMA).
-- `parcelas`: Información geográfica y catastral.
-- `trabajos`: Catálogo de tipos de labores (fito, abono, poda, etc.).
-- `registros`: Tabla central de actividad (vincula parcela, trabajo, maquinaria y fotos).
-- `maquinaria`: Inventario de máquinas y costes de operación.
-- `inventario`: Stock de productos y suministros.
-
-## 3. Lógica de Sincronización (DataStore)
-La clase `DataStore` en `app_v3.js` gestiona la persistencia:
-- **Offline First**: Las acciones mutativas (`add`, `update`, `borrar`) se encolan en `localStorage` si no hay conexión.
-- **Auto-Sync**: Un evento de `window.online` dispara el procesamiento de la cola pendiente.
-- **Validación**: La API valida cada colección y ID antes de aplicar los cambios en el servidor.
-
-## 4. Despliegue y Configuración
-- **API**: Configurada en `api.php`. Requiere conexión PDO a la base de datos definida en las constantes `DB_HOST`, `DB_NAME`, etc.
-- **Uploads**: Las fotos se almacenan en la carpeta `/uploads/` y se vinculan por ID en la tabla `fotos`.
-- **CORS**: Configurado para permitir peticiones desde orígenes locales (desarrollo móvil).
+# 🛠️ Manual Técnico — Garuto (Arquitectura y Seguridad)
+**Guía de Mantenimiento y Especificaciones de Backend**
 
 ---
-© 2026 Garuto — Desarrollo Técnico
+
+## 1. Arquitectura del Sistema
+Garuto opera bajo una arquitectura de **Single Page Application (SPA)** con persistencia **Offline-First**.
+
+### Core Components
+- **API (api.php)**: Punto de entrada único para todas las peticiones. Implementa un sistema de acciones (`action`) que gestionan el CRUD de todas las colecciones.
+- **DataStore (app_v3.js)**: Clase encargada de la comunicación con la red. Utiliza una cola (`queue`) en `localStorage` para garantizar la integridad de los datos en entornos sin conexión.
+- **Visor de Mapas (visor_mapa.php)**: Módulo geográfico independiente basado en Leaflet.js para evitar conflictos de cache con el Service Worker principal.
+
+---
+
+## 2. Capas de Seguridad
+El sistema ha sido blindado siguiendo estándares de seguridad modernos para aplicaciones agrícolas críticas:
+
+### Protección CSRF (Implementada v2.2)
+- **Mecanismo**: Se genera un token aleatorio de 32 bytes (`csrf_token`) al iniciar sesión.
+- **Validación**: Todas las acciones mutativas (`add`, `update`, `borrar`, `import`) requieren el envío de la cabecera `X-CSRF-Token`.
+- **Backend**: La función `checkCSRF()` en `api.php` valida que el token recibido coincida con el almacenado en la sesión de PHP.
+
+### Autenticación y Autorización
+- **Hashing**: Las contraseñas se almacenan mediante `password_hash()` (Argon2id o Bcrypt según versión PHP).
+- **Roles**: Sistema binario de permisos (`admin` / `usuario`). El acceso a `saveUser`, `deleteUser` e `import` de sistema está restringido exclusivamente al rol `admin`.
+- **XSS Prevention**: Las salidas de texto plano se sanean mediante `htmlspecialchars` con `ENT_QUOTES`.
+
+---
+
+## 3. Base de Datos (Esquema SIEX)
+El esquema de MySQL se ha optimizado para la exportación oficial:
+- **Parcelas**: Almacena `referencia_sigpac` (Provincia, Municipio, Polígono, Parcela, Recinto) y `mapa_datos` (un objeto JSON con la posición y estado de cada árbol).
+- **Trabajos**: Incluye la columna `tipo_legal`, fundamental para clasificar los registros fitosanitarios y de fertilización exigidos por el Ministerio.
+- **Finanzas**: Registra movimientos con flujos `ingreso` / `gasto` vinculados a colecciones de mantenimiento o ventas.
+
+---
+
+## 4. Endpoints de Interés
+- `api.php?action=exportSIEX`: Consulta las tablas de parcelas y registros legales, estructura la información según el titular logueado y devuelve un archivo JSON compatible con la precarga de sistemas SIEX.
+- `api.php?action=export`: Genera una copia de seguridad total del sistema en formato JSON (Solo Admin).
+- `api.php?action=import`: Permite la restauración completa de la base de datos (Solo Admin, requiere CSRF).
+
+---
+
+## 5. PWA y Service Worker
+- **Estrategia Caching**: `Stale-While-Revalidate` para activos estáticos (CSS, JS, Fonts).
+- **API Exemption**: El SW está configurado para **nunca** cachear peticiones a `api.php`, garantizando que la comunicación con la base de datos sea siempre en tiempo real cuando hay conexión.
+
+---
+*© 2026 JCGM.DEV — Security & Infrastructure.*

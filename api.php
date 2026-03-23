@@ -22,6 +22,20 @@ session_start([
     'cookie_samesite' => 'Lax'
 ]);
 
+// ---- CSRF Protection ----
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+function checkCSRF() {
+    $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Error de seguridad CSRF. Recargue la página e intente de nuevo.']);
+        exit;
+    }
+}
+
 // ---- Directorio de uploads ----
 define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
@@ -140,6 +154,7 @@ function validCollection($name) {
     }
     return $name;
 }
+
 // ---- Validar autenticación ----
 function checkAuth() {
     if (!isset($_SESSION['user'])) {
@@ -184,7 +199,7 @@ if ($action === 'login') {
             'num_rea' => $user['num_rea'],
             'num_roma' => $user['num_roma']
         ];
-        echo json_encode(['success' => true, 'user' => $_SESSION['user']]);
+        echo json_encode(['success' => true, 'user' => $_SESSION['user'], 'csrfToken' => $_SESSION['csrf_token']]);
         exit;
     }
     http_response_code(401);
@@ -194,7 +209,7 @@ if ($action === 'login') {
 
 if ($action === 'checkSession') {
     if (isset($_SESSION['user'])) {
-        echo json_encode(['authenticated' => true, 'user' => $_SESSION['user']]);
+        echo json_encode(['authenticated' => true, 'user' => $_SESSION['user'], 'csrfToken' => $_SESSION['csrf_token']]);
     } else {
         echo json_encode(['authenticated' => false]);
     }
@@ -216,6 +231,7 @@ if ($action === 'logout') {
     exit;
 }
 if ($action === 'changePassword') {
+    checkCSRF();
     checkAuth();
     $input = json_decode(file_get_contents('php://input'), true);
     $oldPass = trim($input['oldPassword'] ?? '');
@@ -251,6 +267,7 @@ $db = getDB();
 ensureSchema($db);
 
 if ($action === 'getUsers' || $action === 'saveUser' || $action === 'deleteUser') {
+    if ($action !== 'getUsers') checkCSRF();
     checkAdmin();
 
     if ($action === 'getUsers') {
@@ -429,6 +446,12 @@ if ($action === 'getSigpacInfo') {
 checkAuth();
 
 $collection = isset($_GET['collection']) ? validCollection($_GET['collection']) : '';
+
+// Validar CSRF para acciones mutativas
+$mutativeActions = ['add', 'update', 'borrar', 'uploadPhoto', 'uploadDoc', 'import'];
+if (in_array($action, $mutativeActions)) {
+    checkCSRF();
+}
 
 switch ($action) {
 
@@ -1074,7 +1097,7 @@ switch ($action) {
                 if (!in_array($table, $allowed)) continue;
                 
                 // Vaciar tabla
-                $db->exec("DELETE FROM `$table` shadow"); // "shadow" is to bypass some strict settings if any, but standard DELETE is fine
+                $db->exec("DELETE FROM `$table` "); 
                 $db->exec("TRUNCATE TABLE `$table` "); 
 
                 if (empty($rows)) continue;
@@ -1101,6 +1124,48 @@ switch ($action) {
             http_response_code(500);
             echo json_encode(['error' => 'Error durante la restauración: ' . $e->getMessage()]);
         }
+        break;
+
+    // =====================
+    // EXPORT SIEX (OFICIAL CUE)
+    // =====================
+    case 'exportSIEX':
+        $db = getDB();
+        $user = $_SESSION['user'];
+        $data = [
+            'metadata' => [
+                'software' => 'Garuto Cuaderno Digital',
+                'version' => '2026.1',
+                'timestamp' => date('c')
+            ],
+            'titular' => [
+                'nombre' => $user['displayName'],
+                'nif' => $user['nif'] ?? 'Pendiente',
+                'num_rea' => $user['num_rea'] ?? 'Pendiente',
+                'num_roma' => $user['num_roma'] ?? 'Pendiente',
+                'direccion' => $user['direccion'] ?? 'Pendiente'
+            ],
+            'parcelas' => [],
+            'registros_siex' => []
+        ];
+
+        // Obtener Parcelas
+        $stmtP = $db->query("SELECT nombre, variedad, superficie, referencia_sigpac, lat, lng FROM parcelas");
+        $data['parcelas'] = $stmtP->fetchAll();
+
+        // Obtener Registros SIEX (Fitos, Abonos, Cosechas)
+        $stmtR = $db->query("
+            SELECT r.*, t.nombre as trabajo, t.tipo_legal 
+            FROM registros r 
+            JOIN trabajos t ON r.trabajoId = t.id 
+            WHERE t.tipo_legal IN ('fitosanitario', 'herbicida', 'abono', 'cosecha')
+            ORDER BY r.fecha DESC
+        ");
+        $data['registros_siex'] = $stmtR->fetchAll();
+
+        header('Content-Disposition: attachment; filename="CUE_SIEX_OFICIAL_' . date('Y_m_d') . '.json"');
+        echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        exit;
         break;
 
     // =====================
