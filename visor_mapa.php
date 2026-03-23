@@ -30,6 +30,12 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         .top-bar h1 { font-size:1rem; margin:0; flex:1; color:var(--green); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .btn-back { color:white; text-decoration:none; font-size:0.9rem; background:rgba(255,255,255,0.1); padding:0.5rem 0.8rem; border-radius:8px; }
         .btn-save { background:var(--green); color:#051005; border:none; padding:0.6rem 1.2rem; border-radius:8px; font-weight:700; cursor:pointer; }
+        .btn-outline { background:transparent; color:white; border:1px solid rgba(255,255,255,0.3); padding:0.5rem 0.8rem; border-radius:8px; font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; transition:all 0.2s; }
+        .btn-outline:hover { background:rgba(255,255,255,0.1); border-color:white; }
+        @media (max-width: 480px) {
+            .btn-outline span { display: none; }
+            .btn-outline { padding: 0.5rem; }
+        }
         #map { height:calc(100% - var(--header-h)); width:100%; z-index:1; }
         #debug-log { position:absolute; top:70px; left:10px; z-index:9999; width:300px; max-height:220px; overflow-y:auto; background:rgba(0,0,0,0.9); color:#0f0; font-family:monospace; font-size:11px; padding:10px; border-radius:8px; border:1px solid #0f0; display:none; }
         .bottom-panel { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:94%; max-width:650px; background:rgba(22,27,34,0.95); backdrop-filter:blur(15px); padding:0.8rem; border-radius:20px; border:1px solid rgba(163,214,94,0.3); z-index:1000; }
@@ -57,7 +63,11 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
     <div class="top-bar">
         <a href="javascript:history.back()" class="btn-back">← Volver</a>
         <h1 id="page-title">🌿 <?php echo $pNm; ?></h1>
-        <button class="btn-save" id="btn-save">💾 Guardar</button>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <button class="btn-outline" id="btn-export" title="Exportar Copia de Seguridad">📤 <span>Exportar</span></button>
+            <button class="btn-outline" id="btn-import" title="Importar Copia de Seguridad">📥 <span>Importar</span></button>
+            <button class="btn-save" id="btn-save">💾 Guardar</button>
+        </div>
     </div>
     <div id="debug-log"><b>DEBUG v9 (Blindado)</b><br></div>
     <div id="map"></div>
@@ -118,7 +128,54 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
                 b.classList.add('active'); selectedStatus = b.dataset.status;
             });
             document.getElementById('btn-save').onclick = save;
+            document.getElementById('btn-export').onclick = exportTrees;
+            document.getElementById('btn-import').onclick = importTrees;
             document.getElementById('page-title').onclick = () => { const p = document.getElementById('debug-log'); p.style.display = p.style.display==='block'?'none':'block'; };
+        }
+        function exportTrees() {
+            const data = {
+                parcela: CONF.name,
+                id: CONF.id,
+                fecha: new Date().toISOString(),
+                trees: treeData.filter(x => x !== null)
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const safeName = CONF.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            a.href = url;
+            a.download = `arboles_${safeName}_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast("📤 Exportado");
+        }
+        function importTrees() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const data = JSON.parse(reader.result);
+                        if (data.trees && Array.isArray(data.trees)) {
+                            if (confirm(`Se han encontrado ${data.trees.length} árboles en el archivo. ¿Deseas reemplazar los árboles actuales de esta parcela por los del archivo?`)) {
+                                treeData = data.trees;
+                                renderMarkers();
+                                showToast("📥 Importado. Pulsa GUARDAR para finalizar.");
+                            }
+                        } else {
+                            alert("El archivo no parece contener datos válidos de árboles.");
+                        }
+                    } catch (err) {
+                        alert("Error al procesar el archivo JSON.");
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
         }
         function addMarker(t, i) {
             if(!t) return;
