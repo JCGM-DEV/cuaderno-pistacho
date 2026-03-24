@@ -197,11 +197,17 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
             document.getElementById('stat-total').textContent = active.length;
             Object.keys(counts).forEach(k => { const el = document.getElementById('stat-'+k); if(el) el.textContent = counts[k]; });
         }
+        const CSRF_TOKEN = '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
+
         async function save() {
             const btn = document.getElementById('btn-save'); btn.disabled=true; btn.textContent='...';
             try {
                 const res = await fetch(`api.php?action=update&collection=parcelas&id=${CONF.id}`, {
-                    method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+                    method:'POST', credentials:'include', 
+                    headers:{
+                        'Content-Type':'application/json',
+                        'X-CSRF-Token': CSRF_TOKEN
+                    },
                     body: JSON.stringify({ nombre:CONF.name, lat:map.getCenter().lat, lng:map.getCenter().lng, mapa_datos:JSON.stringify(treeData.filter(x=>x!==null)) })
                 });
                 const r = await res.json();

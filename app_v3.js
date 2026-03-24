@@ -57,7 +57,7 @@ class DataStore {
         if (body instanceof FormData) {
             options.body = body;
         } else if (body) {
-            options.headers = { 'Content-Type': 'application/json' };
+            options.headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
         }
 
@@ -986,7 +986,7 @@ class GarutoApp {
 
             const totalHa = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
             const elHa = document.getElementById('stat-ha');
-            if (elHa) { elHa.textContent = totalHa.toFixed(2); elHa.classList.remove('skeleton'); }
+            if (elHa) { elHa.textContent = totalHa.toFixed(4); elHa.classList.remove('skeleton'); }
 
             // This month
             const now = new Date();
@@ -2085,7 +2085,8 @@ class GarutoApp {
             document.getElementById('form-parcela').reset();
             await this._renderParcelas();
         } catch (err) {
-            this._toast('Error al guardar parcela', 'error');
+            console.error('Error en _addParcela:', err);
+            this._toast('Error al guardar parcela: ' + (err.message || 'Error desconocido'), 'error');
         }
     }
 
@@ -2098,7 +2099,7 @@ class GarutoApp {
             // Calcular y mostrar total de hectáreas
             const totalHa = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
             const totalHaEl = document.getElementById('parcelas-total-ha');
-            if (totalHaEl) totalHaEl.textContent = `📐 Total: ${totalHa.toFixed(2)} ha`;
+            if (totalHaEl) totalHaEl.textContent = `📐 Total: ${totalHa.toFixed(4)} ha`;
 
             if (parcelas.length === 0) {
                 container.innerHTML = '<p class="empty-msg">No hay parcelas registradas. ¡Añade tu primera parcela!</p>';
@@ -4900,7 +4901,7 @@ class PistachinBot {
         else if (query.includes('parcela') || query.includes('hectárea') || query.includes('superficie')) {
             const parcelas = await this.app.store.getAll('parcelas');
             const totalHas = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
-            response = `Gestionas <b>${parcelas.length} parcelas</b> (${totalHas.toFixed(2)} Has).`;
+            response = `Gestionas <b>${parcelas.length} parcelas</b> (${totalHas.toFixed(4)} Has).`;
             if (parcelas.length > 0) {
                 const mayor = [...parcelas].sort((a,b) => b.superficie - a.superficie)[0];
                 response += ` La más grande es "${mayor.nombre}".`;

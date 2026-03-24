@@ -78,6 +78,19 @@ function getDB() {
 
 function ensureSchema($db) {
     // 1. Garantizar Tablas
+    $db->exec("CREATE TABLE IF NOT EXISTS parcelas (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        variedad VARCHAR(100),
+        superficie DECIMAL(10,4),
+        referencia_sigpac VARCHAR(100),
+        notas TEXT,
+        lat DECIMAL(10,8),
+        lng DECIMAL(11,8),
+        mapa_datos LONGTEXT,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
     $db->exec("CREATE TABLE IF NOT EXISTS usuarios (
         id INT AUTO_INCREMENT PRIMARY KEY,
         username VARCHAR(50) NOT NULL UNIQUE,
@@ -109,14 +122,21 @@ function ensureSchema($db) {
         if (!in_array('num_roma', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_roma VARCHAR(50) NULL AFTER num_rea"); }
     } catch (Exception $e) {}
 
-    // 3. Garantizar Columnas en Registros (nombre_aplicador)
+    // 3. Garantizar Columnas en Parcelas (superficie precision)
     try {
-        $stmtCol = $db->query("SHOW COLUMNS FROM registros");
-        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
-        if (!in_array('nombre_aplicador', $cols)) { 
-            $db->exec("ALTER TABLE registros ADD nombre_aplicador VARCHAR(255) NULL AFTER carnet_aplicador"); 
+        $stmtCol = $db->query("SHOW COLUMNS FROM parcelas");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($cols as $col) {
+            if ($col['Field'] === 'superficie') {
+                // If it's not already decimal(10,4), fix it
+                if (strtolower($col['Type']) !== 'decimal(10,4)') {
+                    $db->exec("ALTER TABLE parcelas MODIFY COLUMN superficie DECIMAL(10,4)");
+                }
+            }
         }
     } catch (Exception $e) {}
+
+    // 4. Garantizar Columnas en Registros (nombre_aplicador)
 
     // 4. Garantizar Columnas en Inventario (tipo enum fix y columnas extra)
     try {
@@ -722,17 +742,26 @@ switch ($action) {
 
         try {
             if ($collection === 'parcelas') {
-                $stmt = $db->prepare("UPDATE parcelas SET nombre = ?, variedad = ?, superficie = ?, referencia_sigpac = ?, notas = ?, lat = ?, lng = ?, mapa_datos = ? WHERE id = ?");
-                $stmt->execute([
-                    $input['nombre'] ?? '',
-                    $input['variedad'] ?? null,
-                    $input['superficie'] ?? null,
-                    $input['referencia_sigpac'] ?? null,
-                    $input['notas'] ?? '',
-                    $input['lat'] ?? null,
-                    $input['lng'] ?? null, $input['mapa_datos'] ?? null,
-                    $id
-                ]);
+                $fields = [];
+                $params = [];
+                $allowedFields = ['nombre', 'variedad', 'superficie', 'referencia_sigpac', 'notas', 'lat', 'lng', 'mapa_datos'];
+                
+                foreach ($allowedFields as $f) {
+                    if (array_key_exists($f, $input)) {
+                        $fields[] = "`$f` = ?";
+                        $params[] = $input[$f];
+                    }
+                }
+                
+                if (empty($fields)) {
+                    echo json_encode(['success' => true, 'message' => 'Nada que actualizar']);
+                    exit;
+                }
+                
+                $params[] = $id;
+                $sql = "UPDATE parcelas SET " . implode(', ', $fields) . " WHERE id = ?";
+                $stmt = $db->prepare($sql);
+                $stmt->execute($params);
             } elseif ($collection === 'trabajos') {
                 $stmt = $db->prepare("UPDATE trabajos SET nombre = ?, icono = ?, tipo_legal = ? WHERE id = ?");
                 $stmt->execute([
