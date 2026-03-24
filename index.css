@@ -3424,8 +3424,8 @@ body::after {
 }
 
 .fab-logo-img {
-    width: 28px;
-    height: 28px;
+    width: 42px;
+    height: 42px;
     object-fit: contain;
     filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
 }
@@ -3469,8 +3469,8 @@ body::after {
 }
 
 .pistachin-avatar-img {
-    width: 40px;
-    height: 40px;
+    width: 60px;
+    height: 60px;
     object-fit: contain;
     background: rgba(163, 214, 94, 0.2);
     border-radius: 50%;
@@ -3981,11 +3981,11 @@ body::before {
 }
 
 /* Hard constraints for logos to prevent massive regressions */
-.sidebar-logo-img { width: 40px !important; height: 40px !important; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(163,214,94,0.3)); display: flex; align-items: center; justify-content: center; }
+.sidebar-logo-img { width: 55px !important; height: 55px !important; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(163,214,94,0.3)); display: flex; align-items: center; justify-content: center; }
 .login-logo-img { width: 120px !important; height: 120px !important; object-fit: contain; display: flex; align-items: center; justify-content: center; }
 .mobile-logo-img { width: 32px !important; height: 32px !important; object-fit: contain; display: inline-flex; align-items: center; vertical-align: middle; }
-.fab-logo-img { width: 28px !important; height: 28px !important; object-fit: contain; display: flex; align-items: center; justify-content: center; }
-.pistachin-avatar-img { width: 36px !important; height: 36px !important; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--glass-bg); padding: 4px; border: 1px solid var(--glass-border); object-fit: contain; }
+.fab-logo-img { width: 42px !important; height: 42px !important; object-fit: contain; display: flex; align-items: center; justify-content: center; }
+.pistachin-avatar-img { width: 60px !important; height: 60px !important; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--glass-bg); padding: 4px; border: 1px solid var(--glass-border); object-fit: contain; }
 
 /* V2 Cards */
 .card, .stat-premium-card, .list-item, .login-card {
