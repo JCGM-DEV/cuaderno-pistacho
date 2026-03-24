@@ -20,10 +20,10 @@ if (file_exists($envFile)) {
     }
 }
 
-define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
-define('DB_NAME', getenv('DB_NAME') ?: 'garuto_db');
-define('DB_USER', getenv('DB_USER') ?: 'root');
-define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_HOST', getenv('DB_HOST') ?: 'PMYSQL187.dns-servicio.com');
+define('DB_NAME', getenv('DB_NAME') ?: '10833629_cuadernodecampo');
+define('DB_USER', getenv('DB_USER') ?: 'garuto');
+define('DB_PASS', getenv('DB_PASS') ?: '2G80j%6kq');
 define('DB_CHARSET', 'utf8mb4');
 
 // Usuarios cargados desde la base de datos (se usa password_verify)
