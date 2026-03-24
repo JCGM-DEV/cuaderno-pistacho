@@ -8,10 +8,22 @@ ini_set('log_errors', '1');
    ====================================================== */
 
 // ---- Configuración de Base de Datos ----
-define('DB_HOST', getenv('DB_HOST') ?: 'PMYSQL187.dns-servicio.com');
-define('DB_NAME', getenv('DB_NAME') ?: '10833629_cuadernodecampo');
-define('DB_USER', getenv('DB_USER') ?: 'garuto');
-define('DB_PASS', getenv('DB_PASS') ?: '2G80j%6kq');
+// Cargar variables de entorno desde archivo .env si existe
+$envFile = __DIR__ . '/.env';
+if (file_exists($envFile)) {
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = array_map('trim', explode('=', $line, 2));
+            putenv("$key=$value");
+        }
+    }
+}
+
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME', getenv('DB_NAME') ?: 'garuto_db');
+define('DB_USER', getenv('DB_USER') ?: 'root');
+define('DB_PASS', getenv('DB_PASS') ?: '');
 define('DB_CHARSET', 'utf8mb4');
 
 // Usuarios cargados desde la base de datos (se usa password_verify)
@@ -19,6 +31,7 @@ define('DB_CHARSET', 'utf8mb4');
 // ---- Configuración de Sesiones ----
 session_start([
     'cookie_httponly' => true,
+    'cookie_secure'   => true,
     'cookie_samesite' => 'Lax'
 ]);
 
@@ -41,14 +54,14 @@ define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
 // ---- CORS y Headers ----
 header('Content-Type: application/json; charset=utf-8');
-if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header('Access-Control-Allow-Origin: ' . $_SERVER['HTTP_ORIGIN']);
+$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es'];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Credentials: true');
-} else {
-    header('Access-Control-Allow-Origin: *');
 }
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
 // Preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -279,7 +292,6 @@ if ($action === 'changePassword') {
         echo json_encode(['error' => 'La contraseña actual es incorrecta']);
     }
     exit;
-    exit;
 }
 
 // Maintenance moved to global or function
@@ -458,7 +470,6 @@ if ($action === 'getSigpacInfo') {
     }
 
     echo json_encode(['error' => "Fallo total SIGPAC. Intentos: " . implode(" | ", $errors)]);
-    exit;
     exit;
 }
 

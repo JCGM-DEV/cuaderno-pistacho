@@ -377,8 +377,8 @@ h4 {
 }
 
 .sidebar-logo-img {
-    width: 32px;
-    height: 32px;
+    width: 85px;
+    height: 85px;
     object-fit: contain;
     margin-right: 0.5rem;
     vertical-align: middle;
@@ -514,8 +514,8 @@ h4 {
 }
 
 .sidebar-logo-img {
-    width: 40px;
-    height: 40px;
+    width: 85px;
+    height: 85px;
     object-fit: contain;
     filter: drop-shadow(0 0 12px rgba(163, 214, 94, 0.45));
     transition: transform var(--transition-base);
