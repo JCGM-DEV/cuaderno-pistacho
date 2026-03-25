@@ -1,13 +1,13 @@
-const CACHE_NAME = 'garuto-pwa-v2.2';
+const CACHE_NAME = 'garuto-pwa-v3.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './index.css?v=2026v2',
-  './app_v3.js?v=2026v3',
+  './index.css?v=G11',
+  './app_v3.js?v=G10',
   './manifest.json',
   './nut.png',
-  './icon-192x192.png',
-  './icon-512x512.png',
+  './icon-192x192.jpg',
+  './icon-512x512.jpg',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
