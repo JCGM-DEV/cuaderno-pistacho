@@ -4144,6 +4144,26 @@ class GarutoApp {
             });
         }
 
+        // --- Factura Reparaciones ---
+        const btnRepFact = document.getElementById('btn-reparacion-factura');
+        const inputRepFact = document.getElementById('reparacion-factura-file');
+        this.repFacturaData = null;
+
+        if (btnRepFact) {
+            btnRepFact.addEventListener('click', () => inputRepFact.click());
+        }
+        if (inputRepFact) {
+            inputRepFact.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.repFacturaData = file;
+                    const previewBadge = document.querySelector('#reparacion-factura-preview .badge');
+                    if (previewBadge) previewBadge.style.display = 'block';
+                    this._toast("Factura seleccionada");
+                }
+            });
+        }
+
         // Close on outside click
         window.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
@@ -4167,15 +4187,33 @@ class GarutoApp {
 
         if (!maqId || !fecha || !coste || !desc) return;
 
+        let facturaFilename = null;
+        if (this.repFacturaData) {
+            const formData = new FormData();
+            formData.append('factura', this.repFacturaData);
+            try {
+                const res = await this.store._fetch('uploadFactura', {}, formData);
+                if (res.success) facturaFilename = res.filename;
+            } catch (e) {
+                console.error("Error subiendo factura", e);
+                this._toast('Error al subir la factura', 'error');
+            }
+        }
+
         try {
             await this.store.add('maquinaria_reparaciones', {
                 maquinariaId: maqId,
                 fecha,
                 coste: parseFloat(coste) || 0,
                 descripcion: desc,
-                tipo: tipo
+                tipo: tipo,
+                factura: facturaFilename
             });
             document.getElementById('form-reparacion').reset();
+            this.repFacturaData = null;
+            const previewBadge = document.querySelector('#reparacion-factura-preview .badge');
+            if (previewBadge) previewBadge.style.display = 'none';
+
             document.getElementById('reparacion-maquina-id').value = maqId; // Restore ID
             document.getElementById('reparacion-fecha').valueAsDate = new Date(); // Restore date
             await this._renderReparaciones(maqId);
@@ -4210,7 +4248,12 @@ class GarutoApp {
                             <span class="list-item-meta">${this._formatDate(r.fecha)} · <b style="color:var(--danger)">${r.coste} €</b></span>
                         </div>
                     </div>
-                    <div class="list-item-actions">
+                    <div class="list-item-actions" style="display:flex; gap:5px; align-items:center;">
+                        ${r.factura ? `
+                            <a href="uploads/facturas/${r.factura}" target="_blank" class="btn btn-secondary btn-sm" title="Ver Factura">
+                                📄 Factura
+                            </a>
+                        ` : ''}
                         <button class="btn btn-danger btn-sm btn-delete-reparacion" data-id="${r.id}" data-maq-id="${maquinariaId}">🗑️</button>
                     </div>
                 </div>

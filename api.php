@@ -123,6 +123,26 @@ function ensureSchema($db) {
         precio_unidad DECIMAL(10,2) DEFAULT 0.00
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    $db->exec("CREATE TABLE IF NOT EXISTS documentacion (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        parcelaId INT,
+        titulo VARCHAR(255),
+        descripcion TEXT,
+        url VARCHAR(255),
+        filename VARCHAR(255),
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS maquinaria_reparaciones (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        maquinariaId INT,
+        fecha DATE,
+        descripcion TEXT,
+        coste DECIMAL(10,2),
+        tipo VARCHAR(50),
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
     // 2. Garantizar Columnas (Compatibilidad con MySQL < 8.0.19)
     try {
         $stmtCol = $db->query("SHOW COLUMNS FROM usuarios");
@@ -174,6 +194,16 @@ function ensureSchema($db) {
         if (!$foundPrecio) { $db->exec("ALTER TABLE inventario ADD precio_unidad DECIMAL(10,2) DEFAULT 0.00"); }
     } catch (Exception $e) {
         error_log("DB INIT ERROR (Inventario): " . $e->getMessage());
+    }
+
+    // 5. Garantizar columna 'factura' en maquinaria_reparaciones
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM maquinaria_reparaciones LIKE 'factura'");
+        if (!$stmtCol->fetch()) {
+            $db->exec("ALTER TABLE maquinaria_reparaciones ADD COLUMN factura VARCHAR(255) DEFAULT NULL");
+        }
+    } catch (Exception $e) {
+        error_log("DB INIT ERROR (maquinaria_reparaciones factura): " . $e->getMessage());
     }
 }
 
@@ -479,7 +509,7 @@ checkAuth();
 $collection = isset($_GET['collection']) ? validCollection($_GET['collection']) : '';
 
 // Validar CSRF para acciones mutativas
-$mutativeActions = ['add', 'update', 'borrar', 'uploadPhoto', 'uploadDoc', 'import'];
+$mutativeActions = ['add', 'update', 'borrar', 'uploadPhoto', 'uploadDoc', 'uploadFactura', 'import'];
 if (in_array($action, $mutativeActions)) {
     checkCSRF();
 }
@@ -672,13 +702,14 @@ switch ($action) {
                 $input['url'] ?? null
             ]);
         } elseif ($collection === 'maquinaria_reparaciones') {
-            $stmt = $db->prepare("INSERT INTO maquinaria_reparaciones (maquinariaId, fecha, descripcion, coste, tipo) VALUES (?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO maquinaria_reparaciones (maquinariaId, fecha, descripcion, coste, tipo, factura) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
                 intval($input['maquinariaId']),
                 $input['fecha'] ?? date('Y-m-d'),
                 $input['descripcion'] ?? '',
                 $input['coste'] ?? 0.00,
-                $input['tipo'] ?? 'reparacion'
+                $input['tipo'] ?? 'reparacion',
+                $input['factura'] ?? null
             ]);
             $repId = $db->lastInsertId();
 
@@ -860,6 +891,17 @@ switch ($action) {
                     $input['lote_trazabilidad'] ?? null,
                     $id
                 ]);
+            } elseif ($collection === 'maquinaria_reparaciones') {
+                $stmt = $db->prepare("UPDATE maquinaria_reparaciones SET maquinariaId = ?, fecha = ?, descripcion = ?, coste = ?, tipo = ?, factura = ? WHERE id = ?");
+                $stmt->execute([
+                    intval($input['maquinariaId']),
+                    $input['fecha'] ?? date('Y-m-d'),
+                    $input['descripcion'] ?? '',
+                    $input['coste'] ?? 0.00,
+                    $input['tipo'] ?? 'reparacion',
+                    $input['factura'] ?? null,
+                    $id
+                ]);
             }
 
             echo json_encode(['success' => true]);
@@ -898,6 +940,12 @@ switch ($action) {
 
             // LIMPIEZA FINANCIERA AUTOMÁTICA (Integridad de Datos)
             if ($collection === 'maquinaria_reparaciones') {
+                $stmtF = $db->prepare("SELECT factura FROM maquinaria_reparaciones WHERE id = ?");
+                $stmtF->execute([$id]);
+                $f = $stmtF->fetch();
+                if ($f && $f['factura'] && file_exists(UPLOAD_DIR . 'facturas/' . $f['factura'])) {
+                    unlink(UPLOAD_DIR . 'facturas/' . $f['factura']);
+                }
                 $db->prepare("DELETE FROM finanzas WHERE referencia_id = ? AND referencia_tabla = 'maquinaria_reparaciones'")->execute([$id]);
             }
             if ($collection === 'maquinaria') {

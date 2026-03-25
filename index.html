@@ -1671,7 +1671,21 @@
                         <input type="text" id="reparacion-desc"
                             placeholder="Ej: Cambio de aceite y filtros, reparación de bomba..." required>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-full">➕ Añadir Registro de Gasto</button>
+                    
+                    <div class="form-row" style="margin-top: 1rem; align-items: flex-end;">
+                        <div class="form-group">
+                            <label>📄 Factura / Recibo</label>
+                            <input type="file" id="reparacion-factura-file" accept="image/*" hidden>
+                            <button type="button" class="btn btn-secondary btn-full" id="btn-reparacion-factura">
+                                📷 Factura
+                            </button>
+                        </div>
+                        <div id="reparacion-factura-preview" style="flex: 1; display:flex; align-items:center; gap:10px; padding-bottom:5px;">
+                            <span class="badge badge-info" style="display:none;">Factura cargada</span>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-full" style="margin-top:1.5rem;">➕ Añadir Registro de Gasto</button>
                 </form>
 
                 <hr style="margin: 2rem 0; opacity: 0.1;">
