@@ -1025,8 +1025,15 @@
             <!-- ===== MAQUINARIA ===== -->
             <section class="content-section" id="section-maquinaria">
                 <div class="section-header animate-fade-in-up">
-                    <h1>🚜 Gestión de Maquinaria</h1>
-                    <p class="section-desc">Administra tus tractores y aperos</p>
+                    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                        <div>
+                            <h1>🚜 Gestión de Maquinaria</h1>
+                            <p class="section-desc">Administra tus tractores y aperos</p>
+                        </div>
+                        <button id="btn-global-reparaciones" class="btn btn-secondary">
+                            📜 Historial Global de Gastos
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card form-card">
@@ -1692,6 +1699,21 @@
 
                 <!-- Listado reparaciones -->
                 <div id="reparaciones-list" class="items-list">
+                    <!-- Se renderizan aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL HISTORIAL GLOBAL REPARACIONES -->
+    <div id="modal-global-reparaciones" class="modal">
+        <div class="modal-content card" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>📜 Historial Global de Mantenimiento</h2>
+                <button class="close-modal" id="close-modal-global-reparaciones">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="global-reparaciones-list" class="items-list">
                     <!-- Se renderizan aquí -->
                 </div>
             </div>
