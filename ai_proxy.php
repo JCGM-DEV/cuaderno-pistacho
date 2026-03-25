@@ -77,7 +77,7 @@ $systemInstruction = "Eres Pistachín, el asistente inteligente de Garuto. Tono 
 // Configuración según el motor
 if ($isGroq) {
     $url = "https://api.groq.com/openai/v1/chat/completions";
-    $model = $hasImage ? "llama-3.2-11b-vision" : "llama-3.3-70b-versatile";
+    $model = $hasImage ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile";
     
     $messages = [
         ["role" => "system", "content" => $systemInstruction]
