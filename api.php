@@ -1117,6 +1117,36 @@ switch ($action) {
         break;
 
     // =====================
+    // UPLOAD FACTURA (MAQUINARIA)
+    // =====================
+    case 'uploadFactura':
+        if (!isset($_FILES['factura']) || $_FILES['factura']['error'] !== UPLOAD_ERR_OK) {
+            http_response_code(400);
+            echo json_encode(['error' => 'No se recibió la factura correctamente']);
+            exit;
+        }
+
+        // Crear directorio facturas si no existe
+        $factDir = UPLOAD_DIR . 'facturas/';
+        if (!is_dir($factDir)) {
+            mkdir($factDir, 0755, true);
+        }
+
+        // Generar nombre único
+        $ext = pathinfo($_FILES['factura']['name'], PATHINFO_EXTENSION) ?: 'jpg';
+        $filename = 'factura_maq_' . uniqid() . '.' . strtolower($ext);
+
+        // Mover archivo
+        if (!move_uploaded_file($_FILES['factura']['tmp_name'], $factDir . $filename)) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Error al guardar la factura en el servidor']);
+            exit;
+        }
+
+        echo json_encode(['success' => true, 'filename' => $filename]);
+        break;
+
+    // =====================
     // GET PHOTOS BY PARCELA
     // =====================
     case 'getPhotos':
