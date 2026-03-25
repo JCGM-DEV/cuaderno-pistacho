@@ -51,11 +51,24 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         .legend-row { display:flex; justify-content:space-around; gap:0.4rem; }
         .tool-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:0.3rem; background:none; border:2px solid transparent; padding:0.5rem 0.1rem; border-radius:10px; cursor:pointer; color:rgba(255,255,255,0.5); }
         .tool-btn.active { background:rgba(163,214,94,0.1); border-color:var(--green); color:white; }
-        .dot { width:18px; height:18px; border-radius:50%; border:2px solid rgba(255,255,255,0.3); }
-        .dot.hembra { background:#4caf50; } .dot.macho { background:#fff; border-color:#999; } .dot.injerto { background:#2196f3; } .dot.sin_injerto { background:#333; } .dot.marra { background:#f44336; }
+        .dot { 
+            width:20px; height:20px; flex-shrink:0;
+            background-color: currentColor;
+            -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>') no-repeat center;
+            mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>') no-repeat center;
+            -webkit-mask-size: contain; mask-size: contain;
+        }
+        .dot.hembra { color:#4caf50; } .dot.macho { color:#fff; } .dot.injerto { color:#2196f3; } .dot.sin_injerto { color:#aaa; } .dot.marra { color:#f44336; }
         .tool-label { font-size:0.6rem; font-weight:700; text-transform:uppercase; }
-        .tree-marker { border-radius:50%; border:2.5px solid white; box-shadow:0 0 5px rgba(0,0,0,0.5); }
-        .tree-marker.hembra { background:#4caf50; } .tree-marker.macho { background:#fff; border-color:#999; } .tree-marker.injerto { background:#2196f3; } .tree-marker.sin_injerto { background:#333; } .tree-marker.marra { background:#f44336; }
+        
+        .tree-marker { 
+            background-color: currentColor;
+            -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>') no-repeat center;
+            mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>') no-repeat center;
+            -webkit-mask-size: contain; mask-size: contain;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+        }
+        .tree-marker.hembra { color:#4caf50; } .tree-marker.macho { color:#fff; } .tree-marker.injerto { color:#2196f3; } .tree-marker.sin_injerto { color:#aaa; } .tree-marker.marra { color:#f44336; }
         .toast { position:fixed; top:80px; left:50%; transform:translateX(-50%); background:#1e2a1e; border:1px solid var(--green); color:var(--green); padding:0.8rem 1.5rem; border-radius:12px; z-index:2000; }
         /* Stats Panel */
         .stats-panel { position:absolute; top:calc(var(--header-h) + 12px); right:12px; z-index:1000; background:rgba(22,27,34,0.92); backdrop-filter:blur(12px); border:1px solid rgba(163,214,94,0.35); border-radius:14px; padding:0.7rem 0.9rem; min-width:160px; }
@@ -64,7 +77,7 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         .stats-total small { font-size:0.65rem; font-weight:400; color:rgba(255,255,255,0.5); display:block; }
         .stats-row { display:flex; align-items:center; gap:0.4rem; padding:0.2rem 0; font-size:0.72rem; color:rgba(255,255,255,0.8); }
         .stats-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-        .stats-dot.hembra { background:#4caf50; } .stats-dot.macho { background:#fff; } .stats-dot.injerto { background:#2196f3; } .stats-dot.sin_injerto { background:#555; } .stats-dot.marra { background:#f44336; }
+        .stats-dot.hembra { color:#4caf50; } .stats-dot.macho { color:#fff; } .stats-dot.injerto { color:#2196f3; } .stats-dot.sin_injerto { color:#aaa; } .stats-dot.marra { color:#f44336; }
         .stats-count { margin-left:auto; font-weight:700; color:white; }
 
         /* GPS & Floating Buttons */
@@ -299,7 +312,7 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         }
         function addMarker(t, i) {
             if(!t) return;
-            const icon = L.divIcon({ className:`tree-marker ${t.status}`, iconSize:[20,20] });
+            const icon = L.divIcon({ className:`tree-marker ${t.status}`, iconSize:[26,26], iconAnchor:[13,26] });
             const m = L.marker([t.lat, t.lng], {icon}).addTo(map);
             m.on('click', e => {
                 L.DomEvent.stopPropagation(e);
