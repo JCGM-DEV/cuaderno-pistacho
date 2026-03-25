@@ -13,9 +13,10 @@ El panel principal ofrece una visión 360° de tu explotación:
 - **Resumen Estadístico**: Visualiza tus gastos anuales, tipos de labores más frecuentes y stock de almacén en tiempo real mediante gráficos interactivos.
 - **Meteorología Agrícola**: Datos en vivo de temperatura, viento, humedad y probabilidad de lluvia de la estación local (Open-Meteo).
 - **🤖 Pistachín AI (Asistente Inteligente)**:
-  - **Alertas Predictivas**: Pistachín analiza el clima y te avisa: *"¡No sulfutes hoy! Hay un 70% de probabilidad de lluvia"* o *"Viento de 30km/h: Riesgo de deriva en tratamientos"*.
-  - **Control de Stock**: Te avisará automáticamente si te queda poco producto en el inventario.
-  - **Recordatorios de Planning**: Si el calendario de cultivo indica que es tiempo de poda y no has registrado nada, Pistachín te lo recordará.
+  - **Conversación Natural**: Ahora puedes hablar con Pistachín sobre cualquier duda agrícola. Pregúntale *"¿Cuál es la mejor variedad para Ciudad Real?"* o *"¿Cuándo debo podar mis árboles?"*.
+  - **Alertas Predictivas**: Analiza el clima y te avisa de riesgos de lluvia o viento antes de tratar.
+  - **Control de Stock**: Te avisa si bajan las existencias de algún producto.
+  - **Híbrido**: Entiende comandos de la app (ej: "abre finanzas") y consultas generales de IA.
 
 ---
 

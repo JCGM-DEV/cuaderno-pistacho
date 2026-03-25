@@ -4684,6 +4684,14 @@ class PistachinBot {
         this.messagesArea = document.getElementById('pistachin-messages');
         this.quickActionsArea = document.getElementById('pistachin-quick-actions');
         this.alerts = [];
+        
+        // Voz (STT y TTS)
+        this.isSpeakingEnabled = localStorage.getItem('pistachin_voice') === 'true';
+        this.recognition = null;
+        this.isListening = false;
+        this.speechQueue = []; // Cola de mensajes para hablar
+        this.isProcessingSpeech = false; // Flag para saber si está hablando
+        this._initVoice();
 
         this._initEventListeners();
         
@@ -4701,15 +4709,29 @@ class PistachinBot {
             e.preventDefault();
             this.handleSend();
         });
+
+        // Eventos de Voz
+        const voiceBtn = document.getElementById('pistachin-voice-toggle');
+        const micBtn = document.getElementById('pistachin-mic');
+        
+        if (voiceBtn) {
+            if (this.isSpeakingEnabled) voiceBtn.classList.add('active');
+            voiceBtn.onclick = () => {
+                this.isSpeakingEnabled = !this.isSpeakingEnabled;
+                localStorage.setItem('pistachin_voice', this.isSpeakingEnabled);
+                voiceBtn.classList.toggle('active', this.isSpeakingEnabled);
+                if (!this.isSpeakingEnabled) window.speechSynthesis.cancel();
+            };
+        }
+
+        if (micBtn) {
+            micBtn.onclick = () => this.toggleListening();
+        }
     }
 
     _renderQuickActions() {
         const actions = [
-            { label: '📊 Resumen económico', query: 'cuanto he gastado este año' },
-            { label: '🌤️ Previsión campo', query: 'mejor momento para trabajar' },
-            { label: '💾 Exportar SIEX', query: 'como exportar cuaderno' },
-            { label: '📍 Mis parcelas', query: 'resumen de mis parcelas' },
-            { label: '💡 Consejo del mes', query: 'que tengo que hacer este mes' }
+            { label: '❓ Guía de Ayuda Global', query: 'ayuda' }
         ];
 
         this.quickActionsArea.innerHTML = actions.map(a => `
@@ -4724,13 +4746,51 @@ class PistachinBot {
         });
     }
 
-    toggle() {
-        this.isOpen = !this.isOpen;
-        this.container.classList.toggle('active', this.isOpen);
-        if (this.isOpen) {
-            this.input.focus();
-            this._scrollToBottom();
-            if (this.alerts.length > 0) this._showPendingAlerts();
+    async toggle() {
+        try {
+            this.isOpen = !this.isOpen;
+            this.container.classList.toggle('active', this.isOpen);
+            if (this.isOpen) {
+                this.input.focus();
+                
+                // Limpieza inicial de síntesis de voz
+                window.speechSynthesis.cancel();
+
+                // Inicio siempre en silencio al abrir el chat (Manual)
+                this.isSpeakingEnabled = false;
+                const voiceBtn = document.getElementById('pistachin-voice-toggle');
+                if (voiceBtn) voiceBtn.classList.remove('active');
+
+                // Analizar el estado del cuaderno al abrir para dar consejos frescos
+                try {
+                    await this.checkAlerts();
+                } catch (e) { console.warn("Error al chequear alertas:", e); }
+                
+                let userName = 'amigo';
+                if (this.app.currentUser) {
+                    const name = this.app.currentUser.nombre || this.app.currentUser.displayName || 'amigo';
+                    userName = name.split(' ')[0];
+                }
+
+                if (this.alerts.length > 0) {
+                    this._showPendingAlerts();
+                } else if (this.messagesArea.children.length === 0) {
+                    // Si no hay alertas y el chat está vacío, dar bienvenida simple
+                    this._addMessage(`¡Hola <b>${userName}</b>! Soy Pistachín. Todo parece estar en orden hoy. ¿En qué puedo ayudarte?`, 'bot');
+                }
+
+
+                // Iniciar escucha automática con un retraso mayor para dar tiempo al primer mensaje
+                setTimeout(() => {
+                    try {
+                        if (this.isOpen && !this.isListening && !this.isProcessingSpeech) {
+                            this.toggleListening();
+                        }
+                    } catch (e) { console.warn("Error auto-escucha:", e); }
+                }, 3000); // 3 segundos para asegurar que no pille el primer "Hola"
+            }
+        } catch (err) {
+            console.error("Error en PistachinBot.toggle:", err);
         }
     }
 
@@ -4753,7 +4813,127 @@ class PistachinBot {
         msg.className = `message ${side}`;
         msg.innerHTML = text;
         this.messagesArea.appendChild(msg);
+        if (side === 'bot' && this.isSpeakingEnabled) {
+            this.speak(text);
+        }
+
         this._scrollToBottom();
+    }
+
+    _initVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            console.warn("Speech Recognition no soportado en este navegador.");
+            const micBtn = document.getElementById('pistachin-mic');
+            if (micBtn) micBtn.style.display = 'none';
+            return;
+        }
+
+        this.recognition = new SpeechRecognition();
+        this.recognition.lang = 'es-ES';
+        this.recognition.continuous = false;
+        this.recognition.interimResults = false;
+
+        this.recognition.onstart = () => {
+            document.getElementById('pistachin-mic').classList.add('listening');
+        };
+
+        this.recognition.onend = () => {
+            document.getElementById('pistachin-mic').classList.remove('listening');
+        };
+
+        this.recognition.onresult = (event) => {
+            // CRITICAL: Ignorar si el bot está hablando para evitar ecos
+            if (this.isProcessingSpeech) {
+                console.log("Pistachín ignorando eco...");
+                return;
+            }
+            
+            const transcript = event.results[0][0].transcript;
+            this.input.value = transcript;
+            this.handleSend();
+        };
+
+        this.recognition.onerror = (event) => {
+            console.error("Error en reconocimiento de voz:", event.error);
+            this.isListening = false;
+            document.getElementById('pistachin-mic').classList.remove('listening');
+        };
+    }
+
+    toggleListening() {
+        if (!this.recognition) return;
+        
+        if (this.isListening) {
+            this.isListening = false;
+            try { this.recognition.stop(); } catch(e) {}
+        } else {
+            this.isListening = true;
+            // Solo arrancar físicamente el micro si NO está hablando Pistachín.
+            // Si está hablando, la cola de voz se encargará de arrancarlo al terminar.
+            if (!this.isProcessingSpeech) {
+                try { this.recognition.start(); } catch(e) {}
+            }
+        }
+    }
+
+    speak(text) {
+        if (!window.speechSynthesis) return;
+        
+        // Limpieza AGRESIVA para voz: solo texto plano y puntuación básica
+        let cleanText = text.replace(/<[^>]*>/g, '') // Quitar HTML
+                            .replace(/[^\w\s.,?!¡¿áéíóúÁÉÍÓÚñÑ]/gu, ' ') // Quitar emojis y símbolos raros (asteriscos etc)
+                            .replace(/\s+/g, ' ')
+                            .trim();
+        
+        if (!cleanText) return;
+
+        this.speechQueue.push(cleanText);
+        
+        if (!this.isProcessingSpeech) {
+            this._processSpeechQueue();
+        }
+    }
+
+    _processSpeechQueue() {
+        if (this.speechQueue.length === 0) {
+            // Retrasar el flag de "ya no estoy hablando" para asegurar que el micro no se active con el eco final
+            setTimeout(() => {
+                this.isProcessingSpeech = false;
+                // Si hemos terminado de hablar y la escucha estaba activa, la reanudamos con seguridad
+                if (this.isListening && this.isOpen) {
+                    try { this.recognition.start(); } catch(e) {}
+                }
+            }, 1000); 
+            return;
+        }
+
+        this.isProcessingSpeech = true;
+        const text = this.speechQueue.shift();
+        
+        // window.speechSynthesis.cancel(); // Mantenemos desactivado para evitar saltos, 
+        // pero garantizamos que el motor esté limpio al inicio del chat si fuera necesario.
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'es-ES';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.1;
+
+        utterance.onstart = () => {
+             // Detener micro por si acaso sigue activo
+             try { this.recognition.stop(); } catch(e) {}
+        };
+
+        utterance.onend = () => {
+            this._processSpeechQueue();
+        };
+
+        utterance.onerror = (e) => {
+            console.warn("TTS Error:", e);
+            this._processSpeechQueue();
+        };
+
+        window.speechSynthesis.speak(utterance);
     }
 
     async checkAlerts() {
@@ -4811,7 +4991,7 @@ class PistachinBot {
                 if (!done) {
                     this.alerts.push({
                         type: 'planning',
-                        msg: `🕒 **Labor de ${planning.mes}**: No he encontrado registros de "${tarea.t}". ¿La has realizado ya?`
+                        msg: `🕒 **Tarea de ${planning.mes}**: No veo registros de "${tarea.t}". ¿Ya la has hecho?`
                     });
                     break; // Solo una sugerencia de planning a la vez
                 }
@@ -4834,10 +5014,19 @@ class PistachinBot {
     _showPendingAlerts() {
         if (this.alerts.length === 0) return;
         
+        // Evitar repetir el mismo bloque de análisis constantemente si no ha cambiado nada
+        const lastMsg = this.messagesArea.lastElementChild?.textContent || "";
+        if (lastMsg.includes(this.alerts[this.alerts.length-1].msg.substring(0, 20))) return;
+
         setTimeout(() => {
-            this._addMessage("¡Hola! He analizado los datos y te sugiero:", 'bot');
+            let userName = '';
+            if (this.app.currentUser) {
+                const name = this.app.currentUser.nombre || this.app.currentUser.displayName || '';
+                userName = name.split(' ')[0];
+            }
+            this._addMessage(`¡Hola <b>${userName}</b>! Soy Pistachín. He detectado algunos puntos que requieren tu atención:`, 'bot');
             this.alerts.forEach((alert, index) => {
-                setTimeout(() => this._addMessage(alert.msg, 'bot'), (index + 1) * 800);
+                setTimeout(() => this._addMessage(alert.msg, 'bot'), (index + 1) * 600);
             });
             this.toggleBtn.classList.remove('has-alert');
         }, 400);
@@ -4845,6 +5034,86 @@ class PistachinBot {
 
     _scrollToBottom() {
         this.messagesArea.scrollTop = this.messagesArea.scrollHeight;
+    }
+
+    _showHelp() {
+        const categories = [
+            {
+                title: "🌱 Gestión de Parcelas",
+                items: [
+                    { q: "Añadir una nueva parcela", label: "Añadir Parcela" },
+                    { q: "Ver mis tierras en el mapa", label: "Ver Mapa SIGPAC" },
+                    { q: "Resumen de mis parcelas", label: "Listado de tierras" },
+                    { q: "Subir un documento a una parcela", label: "Adjuntar archivos" }
+                ]
+            },
+            {
+                title: "🚜 Cuaderno y Labores",
+                items: [
+                    { q: "Registrar una nueva labor o poda", label: "Nuevo Registro" },
+                    { q: "Qué tengo que hacer este mes", label: "Tareas de Temporada" },
+                    { q: "Añadir maquinaria al garaje", label: "Nueva Maquinaria" },
+                    { q: "Ver mi flota de equipos", label: "Ver Maquinaria" }
+                ]
+            },
+            {
+                title: "📦 Almacén e Inventario",
+                items: [
+                    { q: "Ver qué abono me queda", label: "Consultar Stock" },
+                    { q: "Registrar entrada de producto", label: "Añadir al Almacén" },
+                    { q: "Alertas de productos bajos", label: "Stock bajo" }
+                ]
+            },
+            {
+                title: "💰 Economía y Cosechas",
+                items: [
+                    { q: "Ver resumen de mis gastos", label: "Balance Económico" },
+                    { q: "Registrar una venta de cosecha", label: "Añadir Venta" },
+                    { q: "Cómo va mi rentabilidad", label: "Análisis de Beneficios" }
+                ]
+            },
+            {
+                title: "💾 SIEX y Configuración",
+                items: [
+                    { q: "Cómo puedo exportar el SIEX", label: "Generar Cuaderno" },
+                    { q: "Hacer copia de seguridad", label: "Backup de Datos" },
+                    { q: "Cambiar mi contraseña", label: "Seguridad Perfil" },
+                    { q: "Descargar manual de usuario", label: "Manual Técnico" }
+                ]
+            }
+        ];
+
+        const helpHtml = `
+            <div class="pistachin-help-list">
+                <p><b>Soy tu asistente global.</b> Puedo ayudarte con cualquier sección de Garuto:</p>
+                ${categories.map(cat => `
+                    <div class="help-category">
+                        <div class="help-category-title">${cat.title}</div>
+                        <div class="help-items-grid">
+                            ${cat.items.map(item => `
+                                <div class="help-item" data-query="${item.q}">
+                                    <span>${item.label}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+                <p style="font-size: 0.75rem; margin-top: 0.5rem; opacity: 0.7;">También puedes escribirme libremente sobre cualquier duda.</p>
+            </div>
+        `;
+
+        this._addMessage(helpHtml, 'bot');
+
+        // Añadir listeners a los items de ayuda
+        setTimeout(() => {
+            const items = this.messagesArea.querySelectorAll('.help-item');
+            items.forEach(el => {
+                el.onclick = () => {
+                    this.input.value = el.dataset.query;
+                    this.handleSend();
+                };
+            });
+        }, 100);
     }
 
     async processQuery(text) {
@@ -4858,28 +5127,75 @@ class PistachinBot {
 
         // --- 1. ACCIONES DINÁMICAS (NAVEGACIÓN + GUÍA + HOW-TO) ---
         
-        // Agregar al Almacén / Inventario / Stock
-        if ((query.includes('agregar') || query.includes('añadir') || query.includes('nuevo')) && 
-            (query.includes('almacén') || query.includes('inventario') || query.includes('producto') || query.includes('insumo') || query.includes('stock'))) {
-            navigateTo('almacen', "¡Claro! Te he llevado al <b>Almacén</b>. Para agregar algo nuevo:<br>1. Pulsa el botón verde <b>'+ Nuevo Producto'</b> arriba a la derecha.<br>2. Elige el tipo (Abono, Fito, etc.) y ponle un nombre.<br>3. Indica el stock inicial y el precio. ¡Yo me encargaré de descontarlo cuando lo uses!");
+        // Exportar SIEX / Cuaderno de Campo
+        if (query.includes('exportar') || query.includes('siex') || query.includes('descargar cuaderno')) {
+            response = "Para exportar tu cuaderno a Excel o formato SIEX, ve al panel lateral y selecciona <b>Ajustes</b> o baja al fondo del menú donde encontrarás el botón de <b>Exportar</b>. ¡Así tendrás todos tus datos listos para presentarlos ante la administración!";
         }
-        // Registrar Labor / Trabajo
-        else if ((query.includes('registrar') || query.includes('anotar') || query.includes('apuntar')) && 
-                 (query.includes('labor') || query.includes('trabajo') || query.includes('poda') || query.includes('riego') || query.includes('fito'))) {
-            navigateTo('registrar', "Listo, estamos en <b>Registro de Labores</b>. Aquí puedes:<br>1. Seleccionar la parcela y el tipo de trabajo.<br>2. <b>Consejo:</b> Usa el cronómetro para registrar el tiempo exacto.<br>3. Si es un tratamiento, elige el producto del inventario para que yo actualice el stock automáticamente.");
+        // Backup / Copia de Seguridad / Descargar datos
+        else if (query.includes('backup') || query.includes('copia de seguridad') || query.includes('descargar mis datos') || query.includes('guardar datos')) {
+            navigateTo('ajustes', "Siempre es bueno ser precavido. Te he llevado a <b>Configuración</b>. Busca el botón gris de <b>'Hacer Backup'</b>; se descargará un archivo con toda tu información para que nunca la pierdas.");
+        }
+        // Perfil / Contraseña / Seguridad
+        else if (query.includes('contraseña') || query.includes('perfil') || query.includes('mi usuario') || query.includes('seguridad')) {
+            navigateTo('perfil', "Aquí tienes tu <b>Perfil de Usuario</b>. Puedes cambiar tu nombre de administrador y tu contraseña. ¡Asegúrate de poner una segura!");
+        }
+        // Mapa / SIGPAC / Donde están
+        else if (query.includes('mapa') || query.includes('sigpac') || query.includes('donde') && query.includes('parcela')) {
+            navigateTo('parcelas', "Cargando cartografía... En la sección de <b>Parcelas</b> tienes el botón de <b>'Ver Mapa Global'</b>. Allí verás todas tus tierras dibujadas sobre el mapa del SIGPAC.");
+        }
+        // Fotos / Galería / Imágenes
+        else if (query.includes('fotos') || query.includes('galería') || query.includes('imágenes') || query.includes('ver fotos')) {
+            navigateTo('galeria', "He abierto el <b>Álbum de Fotos</b>. Aquí puedes filtrar por parcelas para ver la evolución visual de tus cultivos o repasar los tratamientos aplicados.");
+        }
+        // Manual / Ayuda Técnica
+        else if (query.includes('manual') || query.includes('instrucciones') || query.includes('como funciona')) {
+            response = "Garuto es muy sencillo: usa el menú de la izquierda para registrar labores o ver el almacén. Si tienes dudas técnicas, en la sección de <b>Ayuda</b> tienes manuales detallados de cada sección.";
+        }
+        // Consejo del mes / Tareas pendientes / Planing
+        else if (query.includes('mes') || query.includes('consejo') || query.includes('hacer') || query.includes('planing')) {
+            const currentMonth = new Date().getMonth();
+            const planning = typeof PLANING_DATA !== 'undefined' ? PLANING_DATA[currentMonth] : null;
+            if (planning) {
+                const tareasStr = planning.tareas.map(t => `<li>${t.t}</li>`).join('');
+                response = `<b>Consejo de ${planning.mes}:</b> "${planning.consejo}"<br><br><b>Tareas clave que tienes que hacer este mes:</b><ul style="margin-top: 5px;">${tareasStr}</ul>¡No olvides registrarlas cuando las termines para mantener el cuaderno al día!`;
+            } else {
+                response = "Este mes parece tranquilo en nuestra zona, pero siempre es buen momento para hacer limpieza, afilar las tijeras y revisar el mantenimiento del tractor.";
+            }
+        }
+        // Consultar Stock específico (¡Nuevo!)
+        else if (query.includes('cuanto') && (query.includes('queda') || query.includes('stock') || query.includes('inventario'))) {
+            navigateTo('almacen', "He abierto el almacén por ti. Puedes ver las cantidades actuales de todos tus insumos (Fitosanitarios, Abonos) en la tabla inferior.\n<b>Pistachín te recuerda:</b> Si veo algo con menos de 5 unidades o kg, te avisaré en mi primer análisis cuando converses conmigo.");
+        }
+        // Cosechas / Venta / Recolectar
+        else if (query.includes('cosecha') || query.includes('recolectar') || query.includes('venta') || query.includes('kg')) {
+            navigateTo('cosechas', "¡Tiempo de cosecha! Te he llevado a la sección de <b>Cosechas y Ventas</b>. Aquí puedes registrar cuántos kilos has sacado de cada parcela y anotar a quién se los has vendido.");
+        }
+        // Consultar / Filtrar / Registros antiguos
+        else if (query.includes('consultar') || query.includes('buscar') || query.includes('filtro') || query.includes('registros')) {
+            navigateTo('consultar', "Entendido. He abierto el <b>Buscador de Registros</b>. Usa los filtros de arriba para encontrar trabajos por fecha, parcela o tipo de labor. ¡Es la mejor forma de repasar el histórico!");
+        }
+        // Agregar al Almacén / Inventario / Stock
+        else if ((query.includes('agregar') || query.includes('añadir') || query.includes('nuevo')) && 
+            (query.includes('almacén') || query.includes('inventario') || query.includes('producto') || query.includes('insumo') || query.includes('stock') || query.includes('abono') || query.includes('fito'))) {
+            navigateTo('almacen', "¡Claro! Te he llevado directo al <b>Almacén</b>. Para agregar algo nuevo:<br>1. Pulsa el botón verde <b>'+ Nuevo Producto'</b> arriba a la derecha.<br>2. Elige la categoría y ponle nombre.<br>3. Indica el stock inicial. Yo me encargaré de descontarlo del inventario conforme registres tratamientos.");
+        }
+        // Registrar Labor / Trabajo / Tratamiento / Enfermedad / Poda (Requiere acción explícita)
+        else if ((query.includes('registrar') || query.includes('anotar') || query.includes('apuntar') || query.includes('abre') || query.includes('nuevo')) && 
+                 (query.includes('labor') || query.includes('trabajo') || query.includes('poda') || query.includes('riego') || query.includes('fito') || query.includes('plaga') || query.includes('enfermedad') || query.includes('tratamiento') || query.includes('cuaderno'))) {
+            navigateTo('registrar', "Listo, estamos en el <b>Registro de Labores</b>. Desde aquí puedes:<br>1. Seleccionar la parcela y el tipo de trabajo (Ej. Aplicación de herbicida o poda).<br>2. <b>Consejo:</b> Si usas algún producto fitosanitario del inventario, te ruego que lo marques para que actualice el saldo del almacén automáticamente.");
         }
         // Nueva Parcela / Añadir Parcela
         else if ((query.includes('nueva') || query.includes('añadir')) && query.includes('parcela')) {
-            navigateTo('parcelas', "Vamos a añadir esa parcela. Te he llevado a la sección correspondiente. Pulsa en <b>'+ Nueva Parcela'</b>. <br>Recuerda que puedo usar el <b>GPS</b> para detectar el SIGPAC y la superficie automáticamente por ti.");
+            navigateTo('parcelas', "Manos a la obra. Pulsa en <b>'+ Nueva Parcela'</b> para delimitar tu nuevo terreno. <br>Recuerda que estoy conectado con el <b>SIGPAC</b>, así que si usas el GPS puedo rellenar la parcela y la superficie automáticamente por ti.");
         }
         // Maquinaria / Nueva Máquina
-        else if ((query.includes('nueva') || query.includes('añadir')) && query.includes('maquina')) {
-            navigateTo('maquinaria', "Entrando al garaje... Pulsa en <b>'+ Nueva Máquina'</b> para darla de alta. No olvides poner el <b>coste por hora</b> si quieres que calcule la rentabilidad de tus trabajos.");
+        else if ((query.includes('nueva') || query.includes('añadir')) && (query.includes('maquina') || query.includes('tractor') || query.includes('apero'))) {
+            navigateTo('maquinaria', "Abriendo las puertas del garaje... Pulsa en <b>'+ Nueva Máquina'</b> para darla de alta. Te aconsejo poner el <b>coste por hora</b> si quieres que calcule la verdadera rentabilidad de las horas empleadas trabajando en el campo.");
         }
-        // Finanzas / Gasto / Ingreso / Venta
+        // Finanzas / Gasto / Ingreso / Venta / Rentabilidad / Beneficio
         else if ((query.includes('nuevo') || query.includes('añadir') || query.includes('registrar')) && 
-                 (query.includes('gasto') || query.includes('ingreso') || query.includes('movimiento') || query.includes('venta'))) {
-            navigateTo('finanzas', "Te he abierto el <b>Libro de Finanzas</b>. Pulsa en <b>'+ Nuevo Movimiento'</b> para anotar un gasto o ingreso manual. <br>Si es una venta de cosecha, también puedes ir a la sección de Cosechas.");
+                 (query.includes('gasto') || query.includes('ingreso') || query.includes('movimiento') || query.includes('venta')) || query.includes('rentabilidad') || query.includes('beneficio')) {
+            navigateTo('finanzas', "Te he preparado el <b>Libro de Finanzas</b>. Pulsa en <b>'+ Nuevo Movimiento'</b> para anotar ese gasto o ingreso que tienes en mente. <br>Echa un vistazo también a tus balances totales y averigua cuál es tu rentabilidad global de esta campaña.");
         }
 
         // --- 2. CONSULTAS DE DATOS ---
@@ -4887,39 +5203,101 @@ class PistachinBot {
         // Clima
         else if (query.includes('clima') || query.includes('tiempo') || query.includes('meteo') || query.includes('llover') || query.includes('trabajar')) {
             const adviceBox = document.querySelector('.advice-box');
-            response = adviceBox ? `He analizado el cielo de Viso del Marqués: <b>${adviceBox.textContent}</b>.` : "El tiempo parece estable para trabajar hoy en el campo. ¡A por ello!";
+            response = adviceBox ? `He subido las antenas para analizar el cielo de nuestra zona: <b>${adviceBox.textContent}</b>.` : "El tiempo parece muy estable para trabajar hoy en el campo bajo el sol manchego. ¡A por ello!";
         } 
         // Economía
-        else if (query.includes('gasto') || query.includes('dinero') || query.includes('coste') || query.includes('económico') || query.includes('saldo') || query.includes('balance')) {
-            const finanzas = await this.app.store.getAll('finanzas');
-            const totalIngresos = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + parseFloat(f.monto), 0);
-            const totalGastos = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + parseFloat(f.monto), 0);
-            const balance = totalIngresos - totalGastos;
-            response = `Tu saldo global es <b>${balance.toFixed(2)}€</b>. Has ingresado <b>${totalIngresos.toFixed(2)}€</b> y gastado <b>${totalGastos.toFixed(2)}€</b>.`;
+        else if (query.includes('gasto') || query.includes('dinero') || query.includes('coste') || query.includes('económico') || query.includes('saldo') || query.includes('balance') || query.includes('rentabilidad')) {
+            try {
+                const finanzas = await this.app.store.getAll('finanzas');
+                const totalIngresos = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + parseFloat(f.monto), 0);
+                const totalGastos = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + parseFloat(f.monto), 0);
+                const balance = totalIngresos - totalGastos;
+                response = `A ver esos números... Tu saldo global te dice que tu cuenta está a <b>${balance.toFixed(2)}€</b>. <br>Has ingresado un total de <b>${totalIngresos.toFixed(2)}€</b> y los gastos y reparaciones suman <b>${totalGastos.toFixed(2)}€</b>.`;
+            } catch (err) {
+                response = "No consigo acceder a la base de datos de tus finanzas en este momento.";
+            }
         }
         // Parcelas
         else if (query.includes('parcela') || query.includes('hectárea') || query.includes('superficie')) {
-            const parcelas = await this.app.store.getAll('parcelas');
-            const totalHas = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
-            response = `Gestionas <b>${parcelas.length} parcelas</b> (${totalHas.toFixed(4)} Has).`;
-            if (parcelas.length > 0) {
-                const mayor = [...parcelas].sort((a,b) => b.superficie - a.superficie)[0];
-                response += ` La más grande es "${mayor.nombre}".`;
+            try {
+                const parcelas = await this.app.store.getAll('parcelas');
+                const totalHas = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
+                response = `Entre todas las extensiones que me has dado a gestionar administras <b>${parcelas.length} parcelas</b> (${totalHas.toFixed(4)} Has).`;
+                if (parcelas.length > 0) {
+                    const mayor = [...parcelas].sort((a,b) => b.superficie - a.superficie)[0];
+                    response += ` La reina de la corona por tamaño es "${mayor.nombre}".`;
+                }
+            } catch (err) {
+                response = "Tengo los mapas desordenados, no puedo ver tus parcelas justo ahora.";
             }
         }
         // Ayuda / Capacidades / Quién eres
-        else if (query.includes('qué puedes') || query.includes('quién eres') || query.includes('ayuda') || query.includes('control')) {
-            response = "Soy <b>Pistachín</b>, tu asistente de control total. Puedo llevarte a cualquier sección, explicarte cómo usar Garuto, analizar tu stock y avisarte si olvidas una tarea crítica. ¡Solo dime qué quieres hacer!";
+        else if (query.includes('qué puedes') || query.includes('quién eres') || query.includes('ayuda') || query.includes('control') || query.includes('sirves')) {
+            this._showHelp();
+            return;
         }
-        // Saludo
-        else if (query.includes('hola') || query.includes('qué tal') || query.includes('buenos')) {
-            response = "¡Hola! Todo bajo control por aquí. Soy Pistachín, listo para ayudarte con tu explotación de pistachos. ¿En qué puedo ayudarte hoy?";
+        // Resumen General (Dashboard)
+        else if (query.includes('resumen') || query.includes('estado') || query.includes('hoy')) {
+            try {
+                const parcelas = await this.app.store.getAll('parcelas');
+                const finanzas = await this.app.store.getAll('finanzas');
+                const totalIngresos = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + parseFloat(f.monto), 0);
+                const totalGastos = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + parseFloat(f.monto), 0);
+                
+                response = `<b>Resumen rápido de Garuto:</b><br>- Tienes <b>${parcelas.length} parcelas</b> activas.<br>- El balance global es de <b>${(totalIngresos - totalGastos).toFixed(2)}€</b>.<br>- Hay ${this.alerts.length} avisos pendientes de revisión.<br>¡Estamos al día!`;
+            } catch (err) { response = "Huy, me he liado con los papeles. No puedo darte el resumen ahora mismo."; }
         }
+        // Agradecimientos / OK
+        else if (query.includes('gracias') || query.includes('ok') || query.includes('perfecto') || query.includes('entendido') || query.includes('vale')) {
+            response = "¡De nada! Aquí sigo para lo que necesites. ¡Que tengas buena jornada!";
+        }
+        else if (query.includes('hola') || query.includes('qué tal') || query.includes('buenos') || query.includes('saludos') || query.includes('ey')) {
+            let userName = 'campeón';
+            if (this.app.currentUser) {
+                const name = this.app.currentUser.nombre || this.app.currentUser.displayName || 'campeón';
+                userName = name.split(' ')[0];
+            }
+            response = `¡Muy buenas, <b>${userName}</b>! Soy la versión mejorada de Pistachín, reportándose como siempre con todo bajo control. ¿En qué te ayudo con tu plantación hoy?`;
+        }
+        // Respuesta dinámica por defecto cuando no entiende (¡CONEXIÓN A IA GEMINI!)
         else {
-            response = "Entendido. Como asistente de Garuto, tengo acceso a todos tus registros. Puedo guiarte por la app, analizar tu inventario o calcular tus balances. ¿Quieres que te enseñe cómo añadir un producto o registrar una labor?";
+            this._askAI(query);
+            return;
         }
 
         this._addMessage(response, 'bot');
+    }
+
+    async _askAI(query) {
+        // Añadir indicador visual de "Pistachín está pensando"
+        const loadingMsg = document.createElement('div');
+        loadingMsg.className = 'message bot thinking';
+        loadingMsg.innerHTML = '<span>.</span><span>.</span><span>.</span>';
+        this.messagesArea.appendChild(loadingMsg);
+        this._scrollToBottom();
+
+        try {
+            const res = await fetch('ai_proxy.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: query })
+            });
+            const data = await res.json();
+            
+            loadingMsg.remove();
+
+            if (data.error) {
+                // Mostrar el error real para diagnosticar en producción
+                console.warn("AI Proxy Error:", data.error);
+                this._addMessage(`<span>Huy, mi cerebro remoto me dice:</span> <br><small style='color: #ff6b6b; background: rgba(0,0,0,0.2); padding: 2px 5px; border-radius: 4px;'>${data.error}</small><br><span>Revisa la configuración técnica.</span>`, 'bot');
+            } else {
+                this._addMessage(data.response, 'bot');
+            }
+        } catch (err) {
+            loadingMsg.remove();
+            console.error("AI Fetch Error:", err);
+            this._addMessage("Huy, mi antena de IA ha tenido una interferencia. ¡Pregúntame otra cosa mientras se enfrían mis circuitos!", 'bot');
+        }
     }
 
 }

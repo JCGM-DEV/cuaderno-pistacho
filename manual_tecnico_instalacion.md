@@ -9,7 +9,8 @@ Garuto opera bajo una arquitectura de **Single Page Application (SPA)** con pers
 ### Core Components
 - **API (api.php)**: Punto de entrada único para todas las peticiones. Implementa un sistema de acciones (`action`) que gestionan el CRUD de todas las colecciones.
 - **DataStore (app_v3.js)**: Clase encargada de la comunicación con la red. Utiliza una cola (`queue`) en `localStorage` para garantizar la integridad de los datos en entornos sin conexión.
-- **Visor de Mapas (visor_mapa.php)**: Módulo geográfico independiente basado en Leaflet.js para evitar conflictos de cache con el Service Worker principal.
+- **Visor de Mapas (visor_mapa.php)**: Módulo geográfico independiente basado en Leaflet.js.
+- **AI Proxy (ai_proxy.php)**: Puente seguro para la inteligencia artificial. Gestiona la comunicación con Groq (Llama 3) protegiendo las API Keys del lado del cliente.
 
 ---
 

@@ -23,7 +23,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="stylesheet" href="index.css?v=G11">
+    <link rel="stylesheet" href="index.css?v=G34">
 
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -34,7 +34,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
     <!-- App -->
-    <script src="app_v3.js?v=G10" defer></script>
+    <script src="app_v3.js?v=G34" defer></script>
 </head>
 
 <body>
@@ -2197,11 +2197,15 @@
                         <span class="pistachin-online">En línea</span>
                     </div>
                 </div>
-                <button id="pistachin-close" class="pistachin-close-btn">✕</button>
+                <div class="pistachin-controls">
+                    <button id="pistachin-voice-toggle" class="pistachin-icon-btn" title="Activar/Desactivar Voz">🔊</button>
+                    <button id="pistachin-close" class="pistachin-close-btn">✕</button>
+                </div>
             </div>
             <div id="pistachin-messages" class="pistachin-messages-area"></div>
             <div id="pistachin-quick-actions" class="pistachin-quick-actions"></div>
             <form id="pistachin-form" class="pistachin-input-area">
+                <button type="button" id="pistachin-mic" class="pistachin-mic-btn" title="Hablar a Pistachín">🎤</button>
                 <input type="text" id="pistachin-input" placeholder="Pregúntame lo que quieras..." autocomplete="off">
                 <button type="submit" id="pistachin-send" class="pistachin-send-btn">▶</button>
             </form>
