@@ -34,7 +34,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
     <!-- App -->
-    <script src="app_v3.js?v=G40" defer></script>
+    <script src="app_v3.js?v=G41"></script>
 </head>
 
 <body>
@@ -1009,6 +1009,13 @@
                             <label for="alm-unidad">Unidad</label>
                             <input type="text" id="alm-unidad" placeholder="L, Kg, Bolsas..." value="L">
                         </div>
+                        <div class="form-group">
+                            <label>Documento / Factura</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-factura-alm">📷 Factura</button>
+                                <span id="factura-badge-alm" style="font-size: 0.7rem; color: var(--success); display: none;">✓ Cargada</span>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary">
                             <span>📦</span> Añadir
                         </button>
@@ -1058,6 +1065,13 @@
                         <div class="form-group">
                             <label for="maq-fecha">Fecha Compra</label>
                             <input type="date" id="maq-fecha">
+                        </div>
+                        <div class="form-group">
+                            <label>Documento / Factura de Compra</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="btn-factura-maq">📷 Factura</button>
+                                <span id="factura-badge-maq" style="font-size: 0.7rem; color: var(--success); display: none;">✓ Cargada</span>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-primary">
                             <span>🚜</span> Añadir Máquina

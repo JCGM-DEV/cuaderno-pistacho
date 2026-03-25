@@ -164,7 +164,25 @@ function ensureSchema($db) {
         }
     } catch (Exception $e) {}
 
-    // 4. Garantizar Columnas en Parcelas (superficie precision)
+    // 4. Garantizar Columnas en Inventario (factura)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM inventario");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('factura', $cols)) { 
+            $db->exec("ALTER TABLE inventario ADD factura VARCHAR(255) NULL AFTER precio_unidad"); 
+        }
+    } catch (Exception $e) {}
+
+    // 5. Garantizar Columnas en Maquinaria (factura)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM maquinaria");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('factura', $cols)) { 
+            $db->exec("ALTER TABLE maquinaria ADD factura VARCHAR(255) NULL AFTER fecha_compra"); 
+        }
+    } catch (Exception $e) {}
+
+    // 6. Garantizar Columnas en Parcelas (superficie precision)
     try {
         $stmtCol = $db->query("SHOW COLUMNS FROM parcelas");
         $cols = $stmtCol->fetchAll(PDO::FETCH_ASSOC);
@@ -579,29 +597,31 @@ switch ($action) {
             ]);
         } elseif ($collection === 'inventario') {
             try {
-                $stmt = $db->prepare("INSERT INTO inventario (nombre, tipo, stock, unidad, ubicacion, precio_unidad) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                $input['nombre'] ?? '',
-                $input['tipo'] ?? 'otro',
-                $input['stock'] ?? 0.00,
-                $input['unidad'] ?? 'unidades',
-                $input['ubicacion'] ?? null,
-                $input['precio_unidad'] ?? 0.00
-            ]);
-        } catch (PDOException $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Error en la base de datos: ' . $e->getMessage()]);
-            exit;
-        }
+                $stmt = $db->prepare("INSERT INTO inventario (nombre, tipo, stock, unidad, ubicacion, precio_unidad, factura) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    $input['nombre'],
+                    $input['tipo'] ?? 'Producto',
+                    $input['stock'] ?? 0,
+                    $input['unidad'] ?? 'Un',
+                    $input['ubicacion'] ?? '',
+                    $input['precio_unidad'] ?? 0,
+                    $input['factura'] ?? null
+                ]);
+            } catch (PDOException $e) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Error en la base de datos: ' . $e->getMessage()]);
+                exit;
+            }
         } elseif ($collection === 'maquinaria') {
-            $stmt = $db->prepare("INSERT INTO maquinaria (nombre, tipo, coste_hora, precio_compra, fecha_compra, estado) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt = $db->prepare("INSERT INTO maquinaria (nombre, tipo, coste_hora, precio_compra, fecha_compra, estado, factura) VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                $input['nombre'] ?? '',
-                $input['tipo'] ?? null,
-                $input['coste_hora'] ?? 0.00,
-                $input['precio_compra'] ?? 0.00,
-                $input['fecha_compra'] ?? date('Y-m-d'),
-                'activo'
+                $input['nombre'],
+                $input['tipo'] ?? '',
+                $input['coste_hora'] ?? 0,
+                $input['precio_compra'] ?? 0,
+                $input['fecha_compra'] ?? null,
+                $input['estado'] ?? 'Activo',
+                $input['factura'] ?? null
             ]);
             $maqId = $db->lastInsertId();
 
@@ -822,7 +842,7 @@ switch ($action) {
                     $id
                 ]);
             } elseif ($collection === 'inventario') {
-                $stmt = $db->prepare("UPDATE inventario SET nombre = ?, tipo = ?, stock = ?, unidad = ?, ubicacion = ?, precio_unidad = ? WHERE id = ?");
+                $stmt = $db->prepare("UPDATE inventario SET nombre = ?, tipo = ?, stock = ?, unidad = ?, ubicacion = ?, precio_unidad = ?, factura = ? WHERE id = ?");
                 $stmt->execute([
                     $input['nombre'] ?? '',
                     $input['tipo'] ?? 'otro',
@@ -830,10 +850,11 @@ switch ($action) {
                     $input['unidad'] ?? 'unidades',
                     $input['ubicacion'] ?? null,
                     $input['precio_unidad'] ?? 0.00,
+                    $input['factura'] ?? null,
                     $id
                 ]);
             } elseif ($collection === 'maquinaria') {
-                $stmt = $db->prepare("UPDATE maquinaria SET nombre = ?, tipo = ?, coste_hora = ?, precio_compra = ?, fecha_compra = ?, precio_venta = ?, fecha_venta = ?, estado = ? WHERE id = ?");
+                $stmt = $db->prepare("UPDATE maquinaria SET nombre = ?, tipo = ?, coste_hora = ?, precio_compra = ?, fecha_compra = ?, precio_venta = ?, fecha_venta = ?, estado = ?, factura = ? WHERE id = ?");
                 $stmt->execute([
                     $input['nombre'] ?? '',
                     $input['tipo'] ?? null,
@@ -843,6 +864,7 @@ switch ($action) {
                     $input['precio_venta'] ?? 0.00,
                     $input['fecha_venta'] ?? null,
                     $input['estado'] ?? 'activo',
+                    $input['factura'] ?? null,
                     $id
                 ]);
 
@@ -947,8 +969,23 @@ switch ($action) {
                 }
             }
 
-            // LIMPIEZA FINANCIERA AUTOMÁTICA (Integridad de Datos)
-            if ($collection === 'maquinaria_reparaciones') {
+            // LIMPIEZA DE FACTURAS (Inventario y Maquinaria)
+            if ($collection === 'inventario') {
+                $stmtF = $db->prepare("SELECT factura FROM inventario WHERE id = ?");
+                $stmtF->execute([$id]);
+                $f = $stmtF->fetch();
+                if ($f && $f['factura'] && file_exists(UPLOAD_DIR . 'facturas/' . $f['factura'])) {
+                    unlink(UPLOAD_DIR . 'facturas/' . $f['factura']);
+                }
+            }
+            if ($collection === 'maquinaria') {
+                $stmtF = $db->prepare("SELECT factura FROM maquinaria WHERE id = ?");
+                $stmtF->execute([$id]);
+                $f = $stmtF->fetch();
+                if ($f && $f['factura'] && file_exists(UPLOAD_DIR . 'facturas/' . $f['factura'])) {
+                    unlink(UPLOAD_DIR . 'facturas/' . $f['factura']);
+                }
+                // Al borrar una máquina, borramos sus reparaciones y sus compras financieras
                 $stmtF = $db->prepare("SELECT factura FROM maquinaria_reparaciones WHERE id = ?");
                 $stmtF->execute([$id]);
                 $f = $stmtF->fetch();

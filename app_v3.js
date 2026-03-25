@@ -1791,6 +1791,31 @@ class GarutoApp {
             });
         }
 
+        // Listeners Facturas Almacén y Maquinaria
+        const btnFactAlm = document.getElementById('btn-factura-alm');
+        if (btnFactAlm) {
+            btnFactAlm.addEventListener('click', () => {
+                this._handleImageUpload('facturas/', (filename) => {
+                    this._currentFacturaAlm = filename;
+                    const badge = document.getElementById('factura-badge-alm');
+                    if (badge) badge.style.display = 'inline';
+                    this._toast('✅ Factura subida correctamente');
+                }, 'factura');
+            });
+        }
+
+        const btnFactMaq = document.getElementById('btn-factura-maq');
+        if (btnFactMaq) {
+            btnFactMaq.addEventListener('click', () => {
+                this._handleImageUpload('facturas/', (filename) => {
+                    this._currentFacturaMaq = filename;
+                    const badge = document.getElementById('factura-badge-maq');
+                    if (badge) badge.style.display = 'inline';
+                    this._toast('✅ Factura subida correctamente');
+                }, 'factura');
+            });
+        }
+
         // Formularios originales
         const formPar = document.getElementById('form-parcela');
         if (formPar) {
@@ -3964,8 +3989,12 @@ class GarutoApp {
 
         try {
             await this.store.add('inventario', {
-                nombre, tipo, stock: parseFloat(stock) || 0, unidad, ubicacion
+                nombre, tipo, stock: parseFloat(stock) || 0, unidad, ubicacion,
+                factura: this._currentFacturaAlm || null
             });
+            this._currentFacturaAlm = null;
+            const badge = document.getElementById('factura-badge-alm');
+            if (badge) badge.style.display = 'none';
             document.getElementById('form-almacen').reset();
             await this._renderAlmacen();
             this._renderRegistrarSelects();
@@ -3998,10 +4027,15 @@ class GarutoApp {
                         </div>
                     </div>
                     <div class="list-item-actions">
+                        ${i.factura ? `<button class="btn btn-secondary btn-sm btn-ver-factura-alm" data-factura="${i.factura}">📄 Ver Factura</button>` : ''}
                         <button class="btn btn-danger btn-sm btn-delete-almacen" data-id="${i.id}">🗑️</button>
                     </div>
                 </div>
             `).join('');
+
+            container.querySelectorAll('.btn-ver-factura-alm').forEach(btn => {
+                btn.onclick = () => window.open(`uploads/facturas/${btn.dataset.factura}`, '_blank');
+            });
 
             container.querySelectorAll('.btn-delete-almacen').forEach(btn => {
                 btn.addEventListener('click', async () => {
@@ -4032,8 +4066,12 @@ class GarutoApp {
                 tipo, 
                 coste_hora: parseFloat(coste) || 0,
                 precio_compra: parseFloat(precio) || 0,
-                fecha_compra: fecha
+                fecha_compra: fecha,
+                factura: this._currentFacturaMaq || null
             });
+            this._currentFacturaMaq = null;
+            const badge = document.getElementById('factura-badge-maq');
+            if (badge) badge.style.display = 'none';
             document.getElementById('form-maquinaria').reset();
             await this._renderMaquinaria();
             this._toast(`Máquina "${nombre}" añadida`);
@@ -4062,11 +4100,16 @@ class GarutoApp {
                         </div>
                     </div>
                     <div class="list-item-actions">
+                        ${m.factura ? `<button class="btn btn-secondary btn-sm btn-ver-factura-maq" data-factura="${m.factura}">📄 Factura Compra</button>` : ''}
                         <button class="btn btn-secondary btn-sm btn-reparaciones-maquinaria" data-id="${m.id}" data-nombre="${this._escapeHTML(m.nombre)}">🔧 Reparaciones</button>
                         <button class="btn btn-danger btn-sm btn-delete-maquinaria" data-id="${m.id}">🗑️</button>
                     </div>
                 </div>
             `).join('');
+
+            container.querySelectorAll('.btn-ver-factura-maq').forEach(btn => {
+                btn.onclick = () => window.open(`uploads/facturas/${btn.dataset.factura}`, '_blank');
+            });
 
             container.querySelectorAll('.btn-delete-maquinaria').forEach(btn => {
                 btn.onclick = async () => {
