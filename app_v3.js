@@ -27,7 +27,7 @@ class DataStore {
 
     async _fetch(action, params = {}, body = null) {
         // If explicitly offline and action is mutative, queue it immediately
-        const mutativeActions = ['add', 'borrar', 'uploadDoc', 'uploadPhoto', 'update'];
+        const mutativeActions = ['add', 'borrar', 'uploadDoc', 'uploadPhoto', 'uploadFactura', 'update'];
         if (!navigator.onLine && mutativeActions.includes(action)) {
             console.warn(`Modo Offline: Encolando acción ${action}`);
             this.queue.push({ action, params, body, timestamp: Date.now() });
@@ -112,7 +112,12 @@ class DataStore {
         for (const item of this.queue) {
             try {
                 // Re-ejecutar ignorando el check de offline interno (forzando fetch real)
-                await this._realFetch(item.action, item.params, item.body);
+                const res = await this._realFetch(item.action, item.params, item.body);
+                // Si la acción devuelve un filename (como uploadFactura), necesitamos actualizarlo en la cola?
+                // No, las facturas se suben ANTES de añadir el registro en _addReparacion.
+                // Si falló el uploadFactura, _addReparacion ni siquiera se llamó.
+                // Si uploadFactura se encoló, necesitamos que _addReparacion también se encole con el filename
+                // Pero _addReparacion es async y espera al uploadFactura.
                 successCount++;
             } catch (err) {
                 console.error('Error sincronizando item:', item, err);
