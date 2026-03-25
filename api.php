@@ -69,12 +69,6 @@ header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
-// Ping action (Public simple test)
-if (isset($_GET['action']) && $_GET['action'] === 'ping') {
-    echo json_encode(['pong' => true]);
-    exit;
-}
-
 // Preflight
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     ob_clean();
@@ -1349,7 +1343,6 @@ switch ($action) {
     // FETCH LONJA (MARKET PRICES via AI)
     // =====================
     case 'fetchLonja':
-        file_put_contents(__DIR__ . '/uploads/debug_lonja.log', "fetchLonja reached (before CSRF) at " . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
         checkCSRF();
         $cacheFile = __DIR__ . '/uploads/lonja_cache.json';
         $cacheTime = 24 * 3600; // 24 horas
@@ -1387,10 +1380,6 @@ switch ($action) {
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
         curl_close($ch);
-
-        // LOG DE DEPURACIÓN TEMPORAL
-        $logEntry = date('Y-m-d H:i:s') . " - HTTP: $httpCode - Error: $curlError - Response: $response\n";
-        file_put_contents(__DIR__ . '/uploads/debug_lonja.log', $logEntry, FILE_APPEND);
 
         if ($httpCode === 200) {
             $data = json_decode($response, true);

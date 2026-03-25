@@ -3903,21 +3903,15 @@ class GarutoApp {
         const lastUpdateEl = document.getElementById('market-last-update');
         const refreshIcon = document.getElementById('refresh-icon');
 
-        if (!pricesList) return;
-
+        const debugEl = document.getElementById('debug-market-status');
         if (debugEl) {
             debugEl.style.display = 'block';
-            debugEl.innerHTML = `DEBUG: Iniciando comprobación...<br>CSRF=${this.store.csrfToken ? 'SI' : 'NO'}<br>Llamando a ping...`;
+            debugEl.innerHTML = `DEBUG: Iniciando... CSRF=${this.store.csrfToken ? 'SI' : 'NO'}<br>Llamando a fetchLonja...`;
         }
 
         try {
-            // Prueba de Ping (Sin CSRF)
-            const pingRes = await fetch('api.php?action=ping');
-            const pingData = await pingRes.json();
-            if (debugEl) debugEl.innerHTML += `<br>Ping: ${pingData.pong ? 'OK' : 'Error'}`;
-
-            if (debugEl) debugEl.innerHTML += `<br>Llamando a fetchLonja...`;
             const data = await this.store._fetch('fetchLonja', { force: force ? 1 : 0 });
+            if (debugEl) debugEl.innerHTML += `<br>Respuesta recibida: ${data.prices ? 'Datos OK' : 'Error en datos'}`;
 
             if (data.error) throw new Error(data.error);
 
@@ -3953,7 +3947,7 @@ class GarutoApp {
             console.error("Error cargando lonja", err);
             if (debugEl) {
                 debugEl.style.display = 'block';
-                debugEl.innerText = `DEBUG: ${err.message}`;
+                debugEl.innerHTML += `<br><span style="color:red">ERROR: ${err.message}</span>`;
             }
             // Si el error es de auth, no mostramos toast para no spamear
             if (force) this._toast("Error al actualizar la lonja: " + err.message, "error");
