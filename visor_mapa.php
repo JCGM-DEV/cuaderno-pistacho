@@ -2,7 +2,16 @@
 // visor_mapa.php — Mapa interactivo GEOGRÁFICO v9 (Blindado contra Caché SW)
 // Este archivo reemplaza a mapa.php para evitar bloqueos de Service Worker antiguos.
 
-session_start();
+session_start([
+    'cookie_httponly' => true,
+    'cookie_secure'   => true,
+    'cookie_samesite' => 'Lax'
+]);
+
+// ---- CSRF Protection ----
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 if (empty($_SESSION['user'])) {
     header('Location: index.html');
