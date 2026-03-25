@@ -23,7 +23,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <link rel="stylesheet" href="index.css?v=G36">
+    <link rel="stylesheet" href="index.css?v=G37">
 
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
@@ -2205,10 +2205,17 @@
             <div id="pistachin-messages" class="pistachin-messages-area"></div>
             <div id="pistachin-quick-actions" class="pistachin-quick-actions"></div>
             <form id="pistachin-form" class="pistachin-input-area">
+                <input type="file" id="pistachin-file" accept="image/*" hidden>
+                <div id="pistachin-image-preview" class="pistachin-image-preview" hidden>
+                    <img src="" alt="Preview">
+                    <button type="button" id="pistachin-remove-image">✕</button>
+                </div>
+                <button type="button" id="pistachin-upload" class="pistachin-upload-btn" title="Subir foto">📷</button>
                 <button type="button" id="pistachin-mic" class="pistachin-mic-btn" title="Hablar a Pistachín">🎤</button>
                 <input type="text" id="pistachin-input" placeholder="Pregúntame lo que quieras..." autocomplete="off">
                 <button type="submit" id="pistachin-send" class="pistachin-send-btn">▶</button>
             </form>
+
         </div>
     </div>
 

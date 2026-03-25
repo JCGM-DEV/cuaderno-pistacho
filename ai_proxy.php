@@ -57,36 +57,73 @@ header('Content-Type: application/json; charset=utf-8');
 // Obtener la consulta del usuario
 $input = json_decode(file_get_contents('php://input'), true);
 $userPrompt = $input['prompt'] ?? '';
+$imageData = $input['image_data'] ?? null; // Base64 string sin el prefijo data:image/...
+$mimeType = $input['mime_type'] ?? 'image/jpeg';
+$hasImage = !empty($imageData);
 
 if (!$apiKey) {
     echo json_encode(['error' => 'No hay API Key configurada. Añade GROQ_API_KEY en tu .env para usar Groq (sin tarjeta).']);
     exit;
 }
 
-if (empty($userPrompt)) {
-    echo json_encode(['error' => 'No se ha proporcionado ninguna consulta.']);
+if (empty($userPrompt) && !$hasImage) {
+    echo json_encode(['error' => 'No se ha proporcionado ninguna consulta ni imagen.']);
     exit;
 }
 
 // System Prompt
-$systemInstruction = "Eres Pistachín, el asistente inteligente de Garuto. Tono amable y experto agricultor. Si te piden datos propios (stock, parcelas, finanzas), diles que usen los botones o comandos locales. Para dudas agrícolas generales, responde tú brevemente en español de España.";
+$systemInstruction = "Eres Pistachín, el asistente inteligente de Garuto. Tono amable y experto agricultor. Si te piden datos propios (stock, parcelas, finanzas), diles que usen los botones o comandos locales. Para dudas agrícolas generales, responde tú brevemente en español de España. Si recibes una imagen, analízala cuidadosamente para diagnosticar el estado del árbol, la tierra o identificar el ejemplar.";
 
 // Configuración según el motor
 if ($isGroq) {
     $url = "https://api.groq.com/openai/v1/chat/completions";
+    $model = $hasImage ? "llama-3.2-11b-vision-preview" : "llama-3.3-70b-versatile";
+    
+    $messages = [
+        ["role" => "system", "content" => $systemInstruction]
+    ];
+
+    if ($hasImage) {
+        $messages[] = [
+            "role" => "user",
+            "content" => [
+                ["type" => "text", "text" => $userPrompt ?: "Analiza esta imagen."],
+                [
+                    "type" => "image_url",
+                    "image_url" => [
+                        "url" => "data:$mimeType;base64,$imageData"
+                    ]
+                ]
+            ]
+        ];
+    } else {
+        $messages[] = ["role" => "user", "content" => $userPrompt];
+    }
+
     $data = [
-        "model" => "llama-3.3-70b-versatile",
-        "messages" => [
-            ["role" => "system", "content" => $systemInstruction],
-            ["role" => "user", "content" => $userPrompt]
-        ],
+        "model" => $model,
+        "messages" => $messages,
         "temperature" => 0.7
     ];
 } else {
-    // Legacy Gemini Support
-    $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" . $apiKey;
+    // Legacy Gemini Support (Gemini 1.5 Flash supports vision)
+    $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
+    
+    $parts = [
+        ["text" => $systemInstruction . "\n\nUsuario dice: " . ($userPrompt ?: "Analiza esta imagen.")]
+    ];
+
+    if ($hasImage) {
+        $parts[] = [
+            "inline_data" => [
+                "mime_type" => $mimeType,
+                "data" => $imageData
+            ]
+        ];
+    }
+
     $data = [
-        "contents" => [["parts" => [["text" => $systemInstruction . "\n\nUsuario dice: " . $userPrompt]]]]
+        "contents" => [["parts" => $parts]]
     ];
 }
 
@@ -119,3 +156,4 @@ if (curl_errno($ch)) {
     }
 }
 curl_close($ch);
+

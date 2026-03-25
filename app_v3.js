@@ -4685,6 +4685,13 @@ class PistachinBot {
         this.quickActionsArea = document.getElementById('pistachin-quick-actions');
         this.alerts = [];
         
+        // --- Nuevo: Estado de Imagen ---
+        this.currentImage = null; // { data: base64, type: mime }
+        this.fileInput = document.getElementById('pistachin-file');
+        this.uploadBtn = document.getElementById('pistachin-upload');
+        this.previewArea = document.getElementById('pistachin-image-preview');
+        this.removeImgBtn = document.getElementById('pistachin-remove-image');
+        
         // Voz (STT y TTS)
         this.isSpeakingEnabled = localStorage.getItem('pistachin_voice') === 'true';
         this.recognition = null;
@@ -4727,6 +4734,54 @@ class PistachinBot {
         if (micBtn) {
             micBtn.onclick = () => this.toggleListening();
         }
+
+        // Eventos de Imagen
+        if (this.uploadBtn) {
+            this.uploadBtn.onclick = () => this.fileInput.click();
+        }
+        if (this.fileInput) {
+            this.fileInput.onchange = (e) => this.handleFileUpload(e);
+        }
+        if (this.removeImgBtn) {
+            this.removeImgBtn.onclick = () => this.removeImage();
+        }
+    }
+
+    handleFileUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            app._toast("Por favor, selecciona una imagen.", "error");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result.split(',')[1];
+            this.currentImage = {
+                data: base64,
+                type: file.type,
+                full: event.target.result
+            };
+            this.previewImage();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    previewImage() {
+        if (!this.currentImage) return;
+        const img = this.previewArea.querySelector('img');
+        img.src = this.currentImage.full;
+        this.previewArea.hidden = false;
+        this.input.placeholder = "Dime qué quieres saber de esta foto...";
+    }
+
+    removeImage() {
+        this.currentImage = null;
+        this.previewArea.hidden = true;
+        this.fileInput.value = '';
+        this.input.placeholder = "Pregúntame lo que quieras...";
     }
 
     _renderQuickActions() {
@@ -4801,11 +4856,25 @@ class PistachinBot {
 
     handleSend() {
         const text = this.input.value.trim();
-        if (!text) return;
+        const hasImage = !!this.currentImage;
+        
+        if (!text && !hasImage) return;
 
-        this._addMessage(text, 'user');
+        // Mostrar mensaje del usuario (con imagen si la hay)
+        let displayHtml = text;
+        if (hasImage) {
+            displayHtml = `<div class="message-image"><img src="${this.currentImage.full}" style="max-width: 150px; border-radius: 8px; margin-bottom: 5px;"></div>` + (text || "<i>Analiza esta imagen</i>");
+        }
+
+        this._addMessage(displayHtml, 'user');
+        
+        const imageData = this.currentImage ? this.currentImage.data : null;
+        const mimeType = this.currentImage ? this.currentImage.type : null;
+
         this.input.value = '';
-        setTimeout(() => this.processQuery(text), 600);
+        this.removeImage(); // Limpiar preview tras enviar
+        
+        setTimeout(() => this.processQuery(text, imageData, mimeType), 600);
     }
 
     _addMessage(text, side) {
@@ -5116,9 +5185,15 @@ class PistachinBot {
         }, 100);
     }
 
-    async processQuery(text) {
-        const query = text.toLowerCase();
+    async processQuery(text, imageData = null, mimeType = null) {
+        const query = text ? text.toLowerCase() : "";
         let response = "";
+
+        // Si hay una imagen, saltamos el procesamiento local y vamos directo a la IA de visión
+        if (imageData) {
+            this._askAI(text || "Analiza esta imagen", imageData, mimeType);
+            return;
+        }
 
         const navigateTo = (section, msg) => {
             this.app._navigateTo(section);
@@ -5268,7 +5343,7 @@ class PistachinBot {
         this._addMessage(response, 'bot');
     }
 
-    async _askAI(query) {
+    async _askAI(query, imageData = null, mimeType = null) {
         // Añadir indicador visual de "Pistachín está pensando"
         const loadingMsg = document.createElement('div');
         loadingMsg.className = 'message bot thinking';
@@ -5277,10 +5352,16 @@ class PistachinBot {
         this._scrollToBottom();
 
         try {
+            const body = { prompt: query };
+            if (imageData) {
+                body.image_data = imageData;
+                body.mime_type = mimeType;
+            }
+
             const res = await fetch('ai_proxy.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: query })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
             
