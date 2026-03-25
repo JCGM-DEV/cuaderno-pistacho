@@ -3302,6 +3302,10 @@ body::after {
     cursor: pointer;
     transition: color 0.2s;
     line-height: 1;
+    position: relative;
+    z-index: 100;
+    padding: 10px;
+    margin: -10px;
 }
 
 .close-modal:hover, .btn-close:hover {

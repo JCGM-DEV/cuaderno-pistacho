@@ -4191,6 +4191,14 @@ class GarutoApp {
         window.addEventListener('click', (e) => {
             if (e.target === modalGlobal) modalGlobal.classList.remove('active');
         });
+
+        // Backup: Global listener for any close-modal button
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('close-modal')) {
+                const modal = e.target.closest('.modal');
+                if (modal) modal.classList.remove('active');
+            }
+        });
     }
 
     async _renderGlobalReparaciones() {

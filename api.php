@@ -155,7 +155,16 @@ function ensureSchema($db) {
         if (!in_array('num_roma', $cols)) { $db->exec("ALTER TABLE usuarios ADD num_roma VARCHAR(50) NULL AFTER num_rea"); }
     } catch (Exception $e) {}
 
-    // 3. Garantizar Columnas en Parcelas (superficie precision)
+    // 3. Garantizar Columnas en Maquinaria Reparaciones (factura)
+    try {
+        $stmtCol = $db->query("SHOW COLUMNS FROM maquinaria_reparaciones");
+        $cols = $stmtCol->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('factura', $cols)) { 
+            $db->exec("ALTER TABLE maquinaria_reparaciones ADD factura VARCHAR(255) NULL AFTER tipo"); 
+        }
+    } catch (Exception $e) {}
+
+    // 4. Garantizar Columnas en Parcelas (superficie precision)
     try {
         $stmtCol = $db->query("SHOW COLUMNS FROM parcelas");
         $cols = $stmtCol->fetchAll(PDO::FETCH_ASSOC);
