@@ -993,6 +993,9 @@ class GarutoApp {
             const elHa = document.getElementById('stat-ha');
             if (elHa) { elHa.textContent = totalHa.toFixed(4); elHa.classList.remove('skeleton'); }
 
+            // Actualizar Precio Lonja en Dashboard si existe
+            this._renderMercado();
+
             // This month
             const now = new Date();
             const mesActual = now.getMonth();
@@ -3907,7 +3910,7 @@ class GarutoApp {
         try {
             const url = `api.php?action=fetchLonja${force ? '&force=1' : ''}`;
             const response = await fetch(url, {
-                headers: { 'X-CSRF-Token': this.csrfToken }
+                headers: { 'X-CSRF-Token': this.store.csrfToken }
             });
             const data = await response.json();
 
@@ -3928,6 +3931,12 @@ class GarutoApp {
 
             if (lastUpdateEl) {
                 lastUpdateEl.innerText = `Actualizado: ${new Date().toLocaleString('es-ES')}`;
+            }
+
+            // Actualizar también la card VIP del dashboard si existe
+            const dashboardPriceEl = document.getElementById('stat-precio-mercado');
+            if (dashboardPriceEl && data.prices && data.prices[0]) {
+                dashboardPriceEl.innerText = `${data.prices[0].p} €`;
             }
 
             this._renderMarketChart(data.prices); 
