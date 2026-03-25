@@ -3905,7 +3905,10 @@ class GarutoApp {
 
         if (!pricesList) return;
 
-        if (force && refreshIcon) refreshIcon.classList.add('fa-spin');
+        if (debugEl) {
+            debugEl.style.display = 'block';
+            debugEl.innerText = `DEBUG: Iniciando fetch... CSRF=${this.store.csrfToken ? 'SI' : 'NO'}`;
+        }
 
         try {
             const data = await this.store._fetch('fetchLonja', { force: force ? 1 : 0 });
@@ -3942,6 +3945,10 @@ class GarutoApp {
 
         } catch (err) {
             console.error("Error cargando lonja", err);
+            if (debugEl) {
+                debugEl.style.display = 'block';
+                debugEl.innerText = `DEBUG: ${err.message}`;
+            }
             // Si el error es de auth, no mostramos toast para no spamear
             if (force) this._toast("Error al actualizar la lonja: " + err.message, "error");
             

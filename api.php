@@ -1,5 +1,6 @@
 <?php
 ob_start();
+@file_put_contents('/tmp/garuto_requests.log', date('Y-m-d H:i:s') . " - URI: " . $_SERVER['REQUEST_URI'] . " - Action: " . ($_GET['action'] ?? 'none') . "\n", FILE_APPEND);
 $debug = getenv('APP_DEBUG') === '1';
 error_reporting(E_ALL);
 ini_set('display_errors', $debug ? '1' : '0');
@@ -43,9 +44,11 @@ if (empty($_SESSION['csrf_token'])) {
 
 function checkCSRF() {
     $token = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-    if (!$token || $token !== ($_SESSION['csrf_token'] ?? '')) {
+    $expected = $_SESSION['csrf_token'] ?? '';
+    if (!$token || $token !== $expected) {
+        @file_put_contents('/tmp/garuto_csrf_debug.log', date('Y-m-d H:i:s') . " - CSRF FAIL: Got [$token], Expected [$expected]\n", FILE_APPEND);
         http_response_code(403);
-        echo json_encode(['error' => 'Error de seguridad CSRF. Recargue la página e intente de nuevo.']);
+        echo json_encode(['error' => 'Error de seguridad CSRF. Got: ' . substr($token, 0, 8) . '... Expected: ' . substr($expected, 0, 8) . '...']);
         exit;
     }
 }
@@ -1341,8 +1344,8 @@ switch ($action) {
     // FETCH LONJA (MARKET PRICES via AI)
     // =====================
     case 'fetchLonja':
+        file_put_contents(__DIR__ . '/uploads/debug_lonja.log', "fetchLonja reached (before CSRF) at " . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
         checkCSRF();
-        file_put_contents(__DIR__ . '/uploads/debug_lonja.log', "fetchLonja triggered at " . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
         $cacheFile = __DIR__ . '/uploads/lonja_cache.json';
         $cacheTime = 24 * 3600; // 24 horas
 
