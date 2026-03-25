@@ -3900,6 +3900,9 @@ class GarutoApp {
     async _renderMercado(force = false) {
         const pricesList = document.getElementById('market-prices-list');
         const adviceEl = document.getElementById('market-advice');
+        const lastUpdateEl = document.getElementById('market-last-update');
+        const refreshIcon = document.getElementById('refresh-icon');
+
         if (force && refreshIcon) refreshIcon.classList.add('fa-spin');
 
         try {
