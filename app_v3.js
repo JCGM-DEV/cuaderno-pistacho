@@ -3907,10 +3907,16 @@ class GarutoApp {
 
         if (debugEl) {
             debugEl.style.display = 'block';
-            debugEl.innerText = `DEBUG: Iniciando fetch... CSRF=${this.store.csrfToken ? 'SI' : 'NO'}`;
+            debugEl.innerHTML = `DEBUG: Iniciando comprobación...<br>CSRF=${this.store.csrfToken ? 'SI' : 'NO'}<br>Llamando a ping...`;
         }
 
         try {
+            // Prueba de Ping (Sin CSRF)
+            const pingRes = await fetch('api.php?action=ping');
+            const pingData = await pingRes.json();
+            if (debugEl) debugEl.innerHTML += `<br>Ping: ${pingData.pong ? 'OK' : 'Error'}`;
+
+            if (debugEl) debugEl.innerHTML += `<br>Llamando a fetchLonja...`;
             const data = await this.store._fetch('fetchLonja', { force: force ? 1 : 0 });
 
             if (data.error) throw new Error(data.error);

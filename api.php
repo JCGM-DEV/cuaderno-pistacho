@@ -1,6 +1,4 @@
-<?php
-ob_start();
-@file_put_contents('/tmp/garuto_requests.log', date('Y-m-d H:i:s') . " - URI: " . $_SERVER['REQUEST_URI'] . " - Action: " . ($_GET['action'] ?? 'none') . "\n", FILE_APPEND);
+header('X-Garuto-Debug: Hit');
 $debug = getenv('APP_DEBUG') === '1';
 error_reporting(E_ALL);
 ini_set('display_errors', $debug ? '1' : '0');
@@ -69,6 +67,12 @@ if (in_array($origin, $allowedOrigins)) {
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
+
+// Ping action (Public simple test)
+if (isset($_GET['action']) && $_GET['action'] === 'ping') {
+    echo json_encode(['pong' => true]);
+    exit;
+}
 
 // Preflight
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
