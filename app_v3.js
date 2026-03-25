@@ -5292,15 +5292,35 @@ class PistachinBot {
                 response = "No consigo acceder a la base de datos de tus finanzas en este momento.";
             }
         }
-        // Parcelas
-        else if (query.includes('parcela') || query.includes('hectárea') || query.includes('superficie')) {
+        // Parcelas y Árboles (Estadísticas detalladas)
+        else if (query.includes('parcela') || query.includes('arbol') || query.includes('árbol') || query.includes('hectárea') || query.includes('cuanto') || query.includes('cuántos')) {
             try {
                 const parcelas = await this.app.store.getAll('parcelas');
-                const totalHas = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
-                response = `Entre todas las extensiones que me has dado a gestionar administras <b>${parcelas.length} parcelas</b> (${totalHas.toFixed(4)} Has).`;
-                if (parcelas.length > 0) {
-                    const mayor = [...parcelas].sort((a,b) => b.superficie - a.superficie)[0];
-                    response += ` La reina de la corona por tamaño es "${mayor.nombre}".`;
+                
+                // Buscar si nombra una parcela concreta
+                let target = parcelas.find(p => query.includes(p.nombre.toLowerCase()));
+                
+                if (target) {
+                    let stats = { total: 0, hembra: 0, macho: 0, injerto: 0, sin_injerto: 0, marra: 0 };
+                    try {
+                        const trees = JSON.parse(target.mapa_datos || '[]').filter(t => t);
+                        stats.total = trees.length;
+                        trees.forEach(t => { if(stats[t.status] !== undefined) stats[t.status]++; });
+                    } catch(e) { console.error("Error parsing mapa_datos", e); }
+
+                    response = `En la parcela <b>"${target.nombre}"</b> (${target.variedad || 'Pistacho'}) tienes un total de <b>${stats.total} árboles</b>:<br>`;
+                    response += `🟢 Hembras: ${stats.hembra}<br>⚪ Machos: ${stats.macho}<br>🔵 Injertados: ${stats.injerto}<br>🔘 Sin injertar: ${stats.sin_injerto}<br>🔴 Marras: ${stats.marra}`;
+                } else {
+                    const totalHas = parcelas.reduce((sum, p) => sum + (parseFloat(p.superficie) || 0), 0);
+                    let totalTrees = 0;
+                    parcelas.forEach(p => {
+                        try { if(p.mapa_datos) totalTrees += JSON.parse(p.mapa_datos).filter(t => t).length; } catch(e){}
+                    });
+                    response = `Entre todas tus extensiones (${totalHas.toFixed(4)} Has) tienes <b>${parcelas.length} parcelas</b> y un total de <b>${totalTrees} árboles</b> mapeados.`;
+                    if (parcelas.length > 0) {
+                        const mayor = [...parcelas].sort((a,b) => b.superficie - a.superficie)[0];
+                        response += `<br>La más grande es "${mayor.nombre}".`;
+                    }
                 }
             } catch (err) {
                 response = "Tengo los mapas desordenados, no puedo ver tus parcelas justo ahora.";
@@ -5319,7 +5339,12 @@ class PistachinBot {
                 const totalIngresos = finanzas.filter(f => f.tipo === 'ingreso').reduce((s, f) => s + parseFloat(f.monto), 0);
                 const totalGastos = finanzas.filter(f => f.tipo === 'gasto').reduce((s, f) => s + parseFloat(f.monto), 0);
                 
-                response = `<b>Resumen rápido de Garuto:</b><br>- Tienes <b>${parcelas.length} parcelas</b> activas.<br>- El balance global es de <b>${(totalIngresos - totalGastos).toFixed(2)}€</b>.<br>- Hay ${this.alerts.length} avisos pendientes de revisión.<br>¡Estamos al día!`;
+                let totalTrees = 0;
+                parcelas.forEach(p => {
+                    try { if(p.mapa_datos) totalTrees += JSON.parse(p.mapa_datos).filter(t => t).length; } catch(e){}
+                });
+
+                response = `<b>Resumen rápido de Garuto:</b><br>- Tienes <b>${parcelas.length} parcelas</b> activas.<br>- Hay <b>${totalTrees} árboles</b> registrados en el mapa.<br>- El balance global es de <b>${(totalIngresos - totalGastos).toFixed(2)}€</b>.<br>- Hay ${this.alerts.length} avisos pendientes de revisión.<br>¡Estamos al día!`;
             } catch (err) { response = "Huy, me he liado con los papeles. No puedo darte el resumen ahora mismo."; }
         }
         // Agradecimientos / OK
