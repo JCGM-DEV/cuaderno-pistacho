@@ -55,12 +55,15 @@ define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
 // ---- CORS y Headers ----
 header('Content-Type: application/json; charset=utf-8');
-$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es'];
+$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es', 'http://localhost', 'http://127.0.0.1'];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowedOrigins)) {
     header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Credentials: true');
+} else {
+    // Fallback para desarrollo o dominios no previstos
+    header('Access-Control-Allow-Origin: *'); 
 }
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
@@ -1339,6 +1342,7 @@ switch ($action) {
     // =====================
     case 'fetchLonja':
         checkCSRF();
+        file_put_contents(__DIR__ . '/uploads/debug_lonja.log', "fetchLonja triggered at " . date('Y-m-d H:i:s') . "\n", FILE_APPEND);
         $cacheFile = __DIR__ . '/uploads/lonja_cache.json';
         $cacheTime = 24 * 3600; // 24 horas
 
