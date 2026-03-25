@@ -1,4 +1,5 @@
-header('X-Garuto-Debug: Hit');
+<?php
+ob_start();
 $debug = getenv('APP_DEBUG') === '1';
 error_reporting(E_ALL);
 ini_set('display_errors', $debug ? '1' : '0');
