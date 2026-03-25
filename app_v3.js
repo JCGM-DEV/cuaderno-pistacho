@@ -4232,7 +4232,7 @@ class GarutoApp {
                                 <a href="uploads/facturas/${r.factura}" target="_blank" class="btn btn-secondary btn-sm" title="Ver Factura">
                                     📄 Ver Factura
                                 </a>
-                            ` : ''}
+                            ` : '<span style="color:var(--text-muted); font-size:0.7rem;">(Sin Factura)</span>'}
                         </div>
                     </div>
                 `;
@@ -4263,7 +4263,12 @@ class GarutoApp {
             formData.append('factura', this.repFacturaData);
             try {
                 const res = await this.store._fetch('uploadFactura', {}, formData);
-                if (res.success) facturaFilename = res.filename;
+                if (res.success) {
+                    facturaFilename = res.filename;
+                    this._toast(`Factura subida: ${facturaFilename}`, 'info');
+                } else if (res.queued) {
+                    this._toast('Factura encolada para subir luego (Modo Offline)', 'warning');
+                }
             } catch (e) {
                 console.error("Error subiendo factura", e);
                 this._toast('Error al subir la factura', 'error');
@@ -4323,7 +4328,7 @@ class GarutoApp {
                             <a href="uploads/facturas/${r.factura}" target="_blank" class="btn btn-secondary btn-sm" title="Ver Factura">
                                 📄 Factura
                             </a>
-                        ` : ''}
+                        ` : '<span style="color:var(--text-muted); font-size:0.7rem;">(Sin Factura)</span>'}
                         <button class="btn btn-danger btn-sm btn-delete-reparacion" data-id="${r.id}" data-maq-id="${maquinariaId}">🗑️</button>
                     </div>
                 </div>
