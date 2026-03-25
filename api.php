@@ -1333,6 +1333,57 @@ switch ($action) {
         break;
 
     // =====================
+    // FETCH LONJA (MARKET PRICES via AI)
+    // =====================
+    case 'fetchLonja':
+        checkCSRF();
+        $cacheFile = __DIR__ . '/uploads/lonja_cache.json';
+        $cacheTime = 24 * 3600; // 24 horas
+
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTime) && !isset($_GET['force'])) {
+            echo file_get_contents($cacheFile);
+            exit;
+        }
+
+        $apiKey = getenv('GEMINI_API_KEY'); 
+        if (!$apiKey) {
+            echo json_encode(['error' => 'API Key de IA no configurada']);
+            exit;
+        }
+
+        // Prompt para obtener precios reales en formato JSON
+        $prompt = "Busca los precios actuales del pistacho en las lonjas de España (Albacete, Murcia, etc.) para hoy " . date('d/m/Y') . ". Devuelve un JSON estrictamente con este formato: {\"prices\": [{\"n\": \"Kerman (Cerrado 18/20)\", \"p\": \"5.40\", \"t\": \"up\"}, ...], \"advice\": \"Frase corta de la IA sobre el mercado.\"}";
+
+        $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json',
+            "Authorization: Bearer $apiKey"
+        ]);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+            'model' => 'llama-3.3-70b-versatile',
+            'messages' => [['role' => 'user', 'content' => $prompt]],
+            'response_format' => ['type' => 'json_object']
+        ]));
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode === 200) {
+            $data = json_decode($response, true);
+            $content = $data['choices'][0]['message']['content'] ?? '{}';
+            // Guardar en cache
+            file_put_contents($cacheFile, $content);
+            echo $content;
+        } else {
+            echo json_encode(['error' => 'Error al conectar con el servicio de precios (HTTP ' . $httpCode . ')']);
+        }
+        exit;
+        break;
+
+    // =====================
     // DEFAULT
     // =====================
     default:

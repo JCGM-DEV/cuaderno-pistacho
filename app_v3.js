@@ -1184,31 +1184,8 @@ class GarutoApp {
     // ===============================
 
     async _renderMarket() {
-        const listContainer = document.getElementById('market-prices-list');
-        const adviceEl = document.getElementById('market-advice');
-        if (!listContainer) return;
-
-        // Mock de datos de lonja (Tendencia simulada)
-        const prices = [
-            { name: 'Kerman (Cerrado 18/20)', price: '5.40€', trend: '+0.05', up: true },
-            { name: 'Kerman (Cerrado 20/22)', price: '5.10€', trend: '-0.02', up: false },
-            { name: 'Larnaka (Grano)', price: '12.50€', trend: '+0.15', up: true },
-            { name: 'Pistacho Ecológico', price: '7.85€', trend: '+0.10', up: true }
-        ];
-
-        listContainer.innerHTML = prices.map(p => `
-            <div class="market-price-item">
-                <span class="price-name">${p.name}</span>
-                <div>
-                    <span class="price-value">${p.price}</span>
-                    <span class="price-trend ${p.up ? 'trend-up' : 'trend-down'}">${p.up ? '▲' : '▼'} ${p.trend}</span>
-                </div>
-            </div>
-        `).join('');
-
-        adviceEl.innerText = "Pistachín AI dice: La demanda de Larnaka está subiendo en Europa. Si tienes stock seco, podría ser buen momento para negociar contratos de exportación. El Kerman convencional se mantiene estable.";
-
-        this._renderMarketChart();
+        // Consolidamos con _renderMercado para evitar duplicidad
+        return this._renderMercado();
     }
 
     _renderMarketChart() {
@@ -3917,30 +3894,55 @@ class GarutoApp {
     // ===============================
     // MERCADO (PRECIOS Y TENDENCIAS)
     // ===============================
-    async _renderMercado() {
+    async _renderMercado(force = false) {
         const pricesList = document.getElementById('market-prices-list');
         const adviceEl = document.getElementById('market-advice');
+        const lastUpdateEl = document.getElementById('market-last-update');
+        const refreshIcon = document.getElementById('refresh-icon');
+
         if (!pricesList) return;
 
-        // Datos simulados (Fase 3)
-        const data = [
-            { n: 'Kerman (Pistacho)', p: '6.45', t: 'up' },
-            { n: 'Larnaka (Pistacho)', p: '7.10', t: 'stable' },
-            { n: 'Sirora (Pistacho)', p: '6.80', t: 'down' }
-        ];
+        if (force && refreshIcon) refreshIcon.classList.add('fa-spin');
 
-        pricesList.innerHTML = data.map(i => `
-            <div class="market-item">
-                <span>${i.n}</span>
-                <span class="market-price ${i.t}">${i.p}€/kg ${i.t === 'up' ? '📈' : i.t === 'down' ? '📉' : '➖'}</span>
-            </div>
-        `).join('');
+        try {
+            const url = `api.php?action=fetchLonja${force ? '&force=1' : ''}`;
+            const response = await fetch(url, {
+                headers: { 'X-CSRF-Token': this.csrfToken }
+            });
+            const data = await response.json();
 
-        if (adviceEl) {
-            adviceEl.innerHTML = `Pistachín AI dice: El mercado de <b>Larnaka</b> está fuerte. Si tienes stock, es buen momento para cerrar tratos.`;
+            if (data.error) throw new Error(data.error);
+
+            if (data.prices && Array.isArray(data.prices)) {
+                pricesList.innerHTML = data.prices.map(i => `
+                    <div class="market-item">
+                        <span>${i.n}</span>
+                        <span class="market-price ${i.t}">${i.p}€/kg ${i.t === 'up' ? '📈' : i.t === 'down' ? '📉' : '➖'}</span>
+                    </div>
+                `).join('');
+            }
+
+            if (adviceEl && data.advice) {
+                adviceEl.innerHTML = `Pistachín AI dice: ${data.advice}`;
+            }
+
+            if (lastUpdateEl) {
+                lastUpdateEl.innerText = `Actualizado: ${new Date().toLocaleString('es-ES')}`;
+            }
+
+            this._renderMarketChart(data.prices); 
+
+        } catch (err) {
+            console.error("Error cargando lonja", err);
+            if (force) this._toast("Error al actualizar la lonja", "error");
+            
+            // Fallback manual si falla la API
+            if (!pricesList.innerHTML.trim()) {
+                pricesList.innerHTML = `<p style="padding:1rem; color:var(--text-muted);">No se pudieron cargar los precios. Intente refrescar manualmente.</p>`;
+            }
+        } finally {
+            if (refreshIcon) refreshIcon.classList.remove('fa-spin');
         }
-
-        this._renderMarketChart();
     }
 
     _renderMarketChart() {
@@ -4944,6 +4946,12 @@ class PistachinBot {
 
         if (micBtn) {
             micBtn.onclick = () => this.toggleListening();
+        }
+
+        // Botón Refresh Mercado
+        const btnRefresh = document.getElementById('btn-refresh-market');
+        if (btnRefresh) {
+            btnRefresh.addEventListener('click', () => this._renderMercado(true));
         }
 
         // Eventos de Imagen

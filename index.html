@@ -1563,10 +1563,16 @@
 
                 <div class="market-grid">
                     <div class="premium-card market-card animate-fade-in-up">
-                        <h3>💰 Precios Lonja (Hoy)</h3>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h3 style="margin: 0;">💰 Precios Lonja (Hoy)</h3>
+                            <button id="btn-refresh-market" class="btn btn-secondary btn-mini" title="Actualizar precios via IA">
+                                <span id="refresh-icon">🔄</span>
+                            </button>
+                        </div>
                         <div id="market-prices-list">
                             <!-- Dinámico -->
                         </div>
+                        <small id="market-last-update" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.5rem; display: block;"></small>
                     </div>
                     <div class="premium-card market-card animate-fade-in-up" style="animation-delay: 0.1s;">
                         <h3>📊 Tendencia Anual</h3>
