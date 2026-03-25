@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $debug = getenv('APP_DEBUG') === '1';
 error_reporting(E_ALL);
 ini_set('display_errors', $debug ? '1' : '0');
@@ -64,7 +65,8 @@ header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
 // Preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    ob_clean();
     http_response_code(200);
     exit;
 }
@@ -1356,6 +1358,8 @@ switch ($action) {
 
         $ch = curl_init('https://api.groq.com/openai/v1/chat/completions');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Evitar fallos por certificados locales
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             "Authorization: Bearer $apiKey"
@@ -1369,16 +1373,23 @@ switch ($action) {
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
         curl_close($ch);
+
+        // LOG DE DEPURACIÓN TEMPORAL
+        $logEntry = date('Y-m-d H:i:s') . " - HTTP: $httpCode - Error: $curlError - Response: $response\n";
+        file_put_contents(__DIR__ . '/uploads/debug_lonja.log', $logEntry, FILE_APPEND);
 
         if ($httpCode === 200) {
             $data = json_decode($response, true);
             $content = $data['choices'][0]['message']['content'] ?? '{}';
             // Guardar en cache
             file_put_contents($cacheFile, $content);
+            ob_clean();
             echo $content;
         } else {
-            echo json_encode(['error' => 'Error al conectar con el servicio de precios (HTTP ' . $httpCode . ')']);
+            ob_clean();
+            echo json_encode(['error' => 'Error al obtener datos de la IA: ' . $httpCode . ' ' . $curlError]);
         }
         exit;
         break;

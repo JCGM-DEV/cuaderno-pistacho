@@ -994,7 +994,7 @@ class GarutoApp {
             if (elHa) { elHa.textContent = totalHa.toFixed(4); elHa.classList.remove('skeleton'); }
 
             // Actualizar Precio Lonja en Dashboard si existe
-            this._renderMercado();
+            this._renderMercado().catch(err => console.error("Error inicial lonja:", err));
 
             // This month
             const now = new Date();
@@ -3908,11 +3908,7 @@ class GarutoApp {
         if (force && refreshIcon) refreshIcon.classList.add('fa-spin');
 
         try {
-            const url = `api.php?action=fetchLonja${force ? '&force=1' : ''}`;
-            const response = await fetch(url, {
-                headers: { 'X-CSRF-Token': this.store.csrfToken }
-            });
-            const data = await response.json();
+            const data = await this.store._fetch('fetchLonja', { force: force ? 1 : 0 });
 
             if (data.error) throw new Error(data.error);
 
@@ -3923,6 +3919,15 @@ class GarutoApp {
                         <span class="market-price ${i.t}">${i.p}€/kg ${i.t === 'up' ? '📈' : i.t === 'down' ? '📉' : '➖'}</span>
                     </div>
                 `).join('');
+
+                // Actualizar también la card VIP del dashboard si tenemos datos
+                const dashboardPriceEl = document.getElementById('stat-precio-mercado');
+                if (dashboardPriceEl && data.prices[0]) {
+                    dashboardPriceEl.innerText = `${data.prices[0].p} €`;
+                    dashboardPriceEl.classList.remove('skeleton');
+                }
+            } else if (force) {
+                this._toast("No se obtuvieron precios nuevos", "warning");
             }
 
             if (adviceEl && data.advice) {
@@ -3933,21 +3938,18 @@ class GarutoApp {
                 lastUpdateEl.innerText = `Actualizado: ${new Date().toLocaleString('es-ES')}`;
             }
 
-            // Actualizar también la card VIP del dashboard si existe
-            const dashboardPriceEl = document.getElementById('stat-precio-mercado');
-            if (dashboardPriceEl && data.prices && data.prices[0]) {
-                dashboardPriceEl.innerText = `${data.prices[0].p} €`;
-            }
-
             this._renderMarketChart(data.prices); 
 
         } catch (err) {
             console.error("Error cargando lonja", err);
-            if (force) this._toast("Error al actualizar la lonja", "error");
+            // Si el error es de auth, no mostramos toast para no spamear
+            if (force) this._toast("Error al actualizar la lonja: " + err.message, "error");
             
-            // Fallback manual si falla la API
-            if (!pricesList.innerHTML.trim()) {
-                pricesList.innerHTML = `<p style="padding:1rem; color:var(--text-muted);">No se pudieron cargar los precios. Intente refrescar manualmente.</p>`;
+            if (pricesList && !pricesList.innerHTML.trim()) {
+                pricesList.innerHTML = `<p style="padding:1rem; color:var(--text-muted); text-align:center;">
+                    ⚠️ No se pudo conectar con el servicio de precios.<br>
+                    <small>${err.message}</small>
+                </p>`;
             }
         } finally {
             if (refreshIcon) refreshIcon.classList.remove('fa-spin');
