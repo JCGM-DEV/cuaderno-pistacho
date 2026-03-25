@@ -57,6 +57,47 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         .stats-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
         .stats-dot.hembra { background:#4caf50; } .stats-dot.macho { background:#fff; } .stats-dot.injerto { background:#2196f3; } .stats-dot.sin_injerto { background:#555; } .stats-dot.marra { background:#f44336; }
         .stats-count { margin-left:auto; font-weight:700; color:white; }
+
+        /* GPS & Floating Buttons */
+        .gps-btn { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; padding:0.6rem; border-radius:12px; cursor:pointer; display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; }
+        .gps-btn.active { background:var(--green); color:#051005; border-color:var(--green); font-weight:700; }
+        .gps-btn.active .gps-dot { background:#051005; box-shadow:0 0 8px #051005; }
+        .gps-dot { width:8px; height:8px; background:var(--green); border-radius:50%; }
+
+        .btn-plant-here { 
+            position:fixed; bottom:110px; right:20px; z-index:1100;
+            width:64px; height:64px; background:var(--green); color:#000;
+            border:none; border-radius:50%; display:flex; align-items:center; justify-content:center;
+            font-size:1.8rem; cursor:pointer; box-shadow:0 8px 25px rgba(163,214,94,0.4);
+            border:4px solid rgba(22,27,34,0.8); transition: transform 0.2s;
+        }
+        .btn-plant-here:active { transform: scale(0.9); }
+        .btn-plant-here:disabled { background:#555; color:#888; box-shadow:none; opacity:0.6; cursor:not-allowed; }
+
+        .accuracy-badge {
+            position:fixed; bottom:100px; left:20px; z-index:1100;
+            background:rgba(0,0,0,0.7); backdrop-filter:blur(5px);
+            padding:4px 10px; border-radius:20px; font-size:0.7rem; font-weight:600;
+            color:var(--green); border:1px solid rgba(163,214,94,0.3);
+        }
+
+        /* User Marker Pulsing Effect */
+        .user-location-marker {
+            background: #2196f3; border: 2px solid white; border-radius: 50%;
+            box-shadow: 0 0 10px rgba(33,150,243,0.8);
+        }
+        .user-location-accuracy { fill: #2196f3; fill-opacity: 0.15; stroke: #2196f3; stroke-width: 1; stroke-opacity: 0.5; }
+        
+        .pulse-marker {
+            width: 12px; height: 12px; background: #2196f3; border-radius: 50%;
+            border: 2px solid white; box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+            animation: pulse-blue 2s infinite;
+        }
+        @keyframes pulse-blue {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(33, 150, 243, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(33, 150, 243, 0); }
+        }
     </style>
 </head>
 <body>
@@ -64,11 +105,14 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         <a href="javascript:history.back()" class="btn-back">← Volver</a>
         <h1 id="page-title">🌿 <?php echo $pNm; ?></h1>
         <div style="display:flex; gap:0.5rem; align-items:center;">
+            <button class="gps-btn" id="btn-gps"><div class="gps-dot"></div> 🛰️ <span>GPS</span></button>
             <button class="btn-outline" id="btn-export" title="Exportar Copia de Seguridad">📤 <span>Exportar</span></button>
             <button class="btn-outline" id="btn-import" title="Importar Copia de Seguridad">📥 <span>Importar</span></button>
             <button class="btn-save" id="btn-save">💾 Guardar</button>
         </div>
     </div>
+    <button class="btn-plant-here" id="btn-plant-here" title="Plantar árbol en mi posición" disabled>🌳</button>
+    <div class="accuracy-badge" id="accuracy-info" style="display:none;">🛰️ Buscando señal...</div>
     <div id="debug-log"><b>DEBUG v9 (Blindado)</b><br></div>
     <div id="map"></div>
     <div class="stats-panel" id="stats-panel">
@@ -105,6 +149,13 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
             if(t==='error') p.style.display = 'block';
         }
         let map, markers = [], treeData = [], selectedStatus = 'hembra', currentParcela = null;
+        
+        // --- GPS Variables ---
+        let watchId = null, userMarker = null, userAccuracyCircle = null, userLatLng = null;
+        const btnGPS = document.getElementById('btn-gps');
+        const btnPlantHere = document.getElementById('btn-plant-here');
+        const accuracyInfo = document.getElementById('accuracy-info');
+
         async function init() {
             log("Iniciando v9 Blindada - ID:" + CONF.id);
             map = L.map('map', { zoomControl: false }).setView([CONF.lat || 38, CONF.lng || -3], (CONF.lat ? 19 : 6));
@@ -130,7 +181,67 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
             document.getElementById('btn-save').onclick = save;
             document.getElementById('btn-export').onclick = exportTrees;
             document.getElementById('btn-import').onclick = importTrees;
+            btnGPS.onclick = toggleGPS;
+            btnPlantHere.onclick = plantAtGPS;
             document.getElementById('page-title').onclick = () => { const p = document.getElementById('debug-log'); p.style.display = p.style.display==='block'?'none':'block'; };
+        }
+
+        // --- GPS Logic ---
+        function toggleGPS() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                btnGPS.classList.remove('active');
+                if (userMarker) map.removeLayer(userMarker);
+                if (userAccuracyCircle) map.removeLayer(userAccuracyCircle);
+                btnPlantHere.disabled = true;
+                accuracyInfo.style.display = 'none';
+                log("GPS Detenido");
+            } else {
+                if (!navigator.geolocation) return alert("Tu dispositivo no soporta GPS");
+                
+                log("Iniciando seguimiento GPS...");
+                btnGPS.classList.add('active');
+                accuracyInfo.style.display = 'block';
+
+                watchId = navigator.geolocation.watchPosition(
+                    pos => {
+                        const { latitude, longitude, accuracy } = pos.coords;
+                        userLatLng = [latitude, longitude];
+                        
+                        // Actualizar UI de precisión
+                        accuracyInfo.textContent = `🛰️ Precisión: ${Math.round(accuracy)}m`;
+                        btnPlantHere.disabled = accuracy > 25; // Solo permitir si la precisión es aceptable (<25m)
+
+                        if (!userMarker) {
+                            userMarker = L.marker(userLatLng, {
+                                icon: L.divIcon({ className: 'pulse-marker', iconSize: [12, 12], iconAnchor: [6, 6] })
+                            }).addTo(map);
+                            userAccuracyCircle = L.circle(userLatLng, { radius: accuracy, className: 'user-location-accuracy' }).addTo(map);
+                            map.setView(userLatLng, 19); // Auto-centrar la primera vez
+                        } else {
+                            userMarker.setLatLng(userLatLng);
+                            userAccuracyCircle.setLatLng(userLatLng);
+                            userAccuracyCircle.setRadius(accuracy);
+                        }
+                    },
+                    err => {
+                        log("Error GPS: " + err.message, "error");
+                        toggleGPS(); // Parar si hay error
+                    },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+                );
+            }
+        }
+
+        function plantAtGPS() {
+            if (!userLatLng || selectedStatus === 'vacio') return;
+            log(`Plantando ${selectedStatus} en posición GPS...`);
+            const nt = { lat: userLatLng[0], lng: userLatLng[1], status: selectedStatus };
+            treeData.push(nt);
+            addMarker(nt, treeData.length - 1);
+            updateStats();
+            showToast("🌳 Árbol colocado");
         }
         function exportTrees() {
             const data = {
