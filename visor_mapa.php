@@ -63,12 +63,13 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         
         .tree-marker { 
             display:flex; align-items:center; justify-content:center;
-            border-radius:50%; background:rgba(22,27,33,0.8);
-            border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.6);
-            padding:4px; transition: transform 0.2s;
+            border-radius:50%; background:rgba(22,27,33,0.85);
+            border:1.5px solid white; box-shadow:0 0 8px rgba(0,0,0,0.6);
+            padding:3px; transition: transform 0.2s;
+            cursor: move;
         }
-        .tree-marker:hover { transform: scale(1.2); z-index: 1000 !important; }
-        .tree-marker svg { width:100%; height:100%; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5)); }
+        .tree-marker:active { cursor: grabbing; }
+        .tree-marker svg { width:100%; height:100%; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.5)); }
         .tree-marker.hembra { color:#b8f17e; } .tree-marker.macho { color:#fff; } .tree-marker.injerto { color:#58b1f5; } .tree-marker.sin_injerto { color:#aaa; } .tree-marker.marra { color:#ff6b6b; }
         .toast { position:fixed; top:80px; left:50%; transform:translateX(-50%); background:#1e2a1e; border:1px solid var(--green); color:var(--green); padding:0.8rem 1.5rem; border-radius:12px; z-index:2000; }
         /* Stats Panel */
@@ -316,9 +317,19 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
             const icon = L.divIcon({ 
                 className:`tree-marker ${t.status}`, 
                 html: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>`,
-                iconSize:[32,32], iconAnchor:[16,16] 
+                iconSize:[24,24], iconAnchor:[12,12] 
             });
-            const m = L.marker([t.lat, t.lng], {icon}).addTo(map);
+            const m = L.marker([t.lat, t.lng], {icon, draggable: true}).addTo(map);
+            
+            m.on('dragend', function(event) {
+                const marker = event.target;
+                const position = marker.getLatLng();
+                treeData[i].lat = position.lat;
+                treeData[i].lng = position.lng;
+                log(`Árbol #${i+1} movido a: ${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`);
+                showToast("📍 Posición actualizada");
+            });
+
             m.on('click', e => {
                 L.DomEvent.stopPropagation(e);
                 if(selectedStatus==='vacio') { map.removeLayer(m); treeData[i]=null; }
