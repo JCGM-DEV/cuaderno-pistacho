@@ -3900,18 +3900,10 @@ class GarutoApp {
     async _renderMercado(force = false) {
         const pricesList = document.getElementById('market-prices-list');
         const adviceEl = document.getElementById('market-advice');
-        const lastUpdateEl = document.getElementById('market-last-update');
-        const refreshIcon = document.getElementById('refresh-icon');
-
-        const debugEl = document.getElementById('debug-market-status');
-        if (debugEl) {
-            debugEl.style.display = 'block';
-            debugEl.innerHTML = `DEBUG: Iniciando... CSRF=${this.store.csrfToken ? 'SI' : 'NO'}<br>Llamando a fetchLonja...`;
-        }
+        if (force && refreshIcon) refreshIcon.classList.add('fa-spin');
 
         try {
             const data = await this.store._fetch('fetchLonja', { force: force ? 1 : 0 });
-            if (debugEl) debugEl.innerHTML += `<br>Respuesta recibida: ${data.prices ? 'Datos OK' : 'Error en datos'}`;
 
             if (data.error) throw new Error(data.error);
 
@@ -3945,10 +3937,6 @@ class GarutoApp {
 
         } catch (err) {
             console.error("Error cargando lonja", err);
-            if (debugEl) {
-                debugEl.style.display = 'block';
-                debugEl.innerHTML += `<br><span style="color:red">ERROR: ${err.message}</span>`;
-            }
             // Si el error es de auth, no mostramos toast para no spamear
             if (force) this._toast("Error al actualizar la lonja: " + err.message, "error");
             
