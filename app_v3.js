@@ -4186,7 +4186,11 @@ class GarutoApp {
             });
         }
         if (closeBtnGlobal) {
-            closeBtnGlobal.addEventListener('click', () => modalGlobal.classList.remove('active'));
+            closeBtnGlobal.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                modalGlobal.classList.remove('active');
+            });
         }
         window.addEventListener('click', (e) => {
             if (e.target === modalGlobal) modalGlobal.classList.remove('active');
@@ -4194,8 +4198,11 @@ class GarutoApp {
 
         // Backup: Global listener for any close-modal button
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('close-modal')) {
-                const modal = e.target.closest('.modal');
+            const btn = e.target.closest('.close-modal');
+            if (btn) {
+                e.preventDefault();
+                e.stopPropagation();
+                const modal = btn.closest('.modal');
                 if (modal) modal.classList.remove('active');
             }
         });
@@ -4237,9 +4244,9 @@ class GarutoApp {
                         </div>
                         <div class="list-item-actions" style="display:flex; gap:5px; align-items:center;">
                             ${r.factura ? `
-                                <a href="uploads/facturas/${r.factura}" target="_blank" class="btn btn-secondary btn-sm" title="Ver Factura">
+                                <button onclick="window.open('uploads/facturas/${r.factura}', '_blank'); event.stopPropagation();" class="btn btn-secondary btn-sm" title="Ver Factura">
                                     📄 Ver Factura
-                                </a>
+                                </button>
                             ` : '<span style="color:var(--text-muted); font-size:0.7rem;">(Sin Factura)</span>'}
                         </div>
                     </div>
@@ -4333,9 +4340,9 @@ class GarutoApp {
                     </div>
                     <div class="list-item-actions" style="display:flex; gap:5px; align-items:center;">
                         ${r.factura ? `
-                            <a href="uploads/facturas/${r.factura}" target="_blank" class="btn btn-secondary btn-sm" title="Ver Factura">
+                            <button onclick="window.open('uploads/facturas/${r.factura}', '_blank'); event.stopPropagation();" class="btn btn-secondary btn-sm" title="Ver Factura">
                                 📄 Factura
-                            </a>
+                            </button>
                         ` : '<span style="color:var(--text-muted); font-size:0.7rem;">(Sin Factura)</span>'}
                         <button class="btn btn-danger btn-sm btn-delete-reparacion" data-id="${r.id}" data-maq-id="${maquinariaId}">🗑️</button>
                     </div>
