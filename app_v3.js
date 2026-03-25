@@ -4168,6 +4168,71 @@ class GarutoApp {
         window.addEventListener('click', (e) => {
             if (e.target === modal) modal.classList.remove('active');
         });
+
+        // --- Historial Global ---
+        const btnGlobal = document.getElementById('btn-global-reparaciones');
+        const modalGlobal = document.getElementById('modal-global-reparaciones');
+        const closeBtnGlobal = document.getElementById('close-modal-global-reparaciones');
+
+        if (btnGlobal) {
+            btnGlobal.addEventListener('click', () => {
+                modalGlobal.classList.add('active');
+                this._renderGlobalReparaciones();
+            });
+        }
+        if (closeBtnGlobal) {
+            closeBtnGlobal.addEventListener('click', () => modalGlobal.classList.remove('active'));
+        }
+        window.addEventListener('click', (e) => {
+            if (e.target === modalGlobal) modalGlobal.classList.remove('active');
+        });
+    }
+
+    async _renderGlobalReparaciones() {
+        const container = document.getElementById('global-reparaciones-list');
+        if (!container) return;
+        container.innerHTML = '<p class="empty-msg">Cargando historial global...</p>';
+
+        try {
+            const [allRep, allMaqs] = await Promise.all([
+                this.store.getAll('maquinaria_reparaciones'),
+                this.store.getAll('maquinaria')
+            ]);
+            
+            const repairs = allRep.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+            if (repairs.length === 0) {
+                container.innerHTML = '<p class="empty-msg">No hay registros de mantenimiento globales.</p>';
+                return;
+            }
+
+            container.innerHTML = repairs.map(r => {
+                const maq = allMaqs.find(m => m.id == r.maquinariaId);
+                const maqNombre = maq ? maq.nombre : 'Máquina desconocida';
+                
+                return `
+                    <div class="list-item" data-id="${r.id}">
+                        <div class="list-item-info">
+                            <span class="list-item-icon">${r.tipo === 'recambio' ? '⚙️' : (r.tipo === 'mantenimiento' ? '🧼' : '🔧')}</span>
+                            <div>
+                                <span class="list-item-name">
+                                    <small style="display:block; color:var(--pistachio-400); font-weight:700;">🚜 ${this._escapeHTML(maqNombre)}</small>
+                                    ${this._escapeHTML(r.descripcion)}
+                                </span>
+                                <span class="list-item-meta">${this._formatDate(r.fecha)} · <b style="color:var(--danger)">${r.coste} €</b></span>
+                            </div>
+                        </div>
+                        <div class="list-item-actions" style="display:flex; gap:5px; align-items:center;">
+                            ${r.factura ? `
+                                <a href="uploads/facturas/${r.factura}" target="_blank" class="btn btn-secondary btn-sm" title="Ver Factura">
+                                    📄 Ver Factura
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        } catch (err) { console.error(err); container.innerHTML = '<p class="empty-msg">Error al cargar datos.</p>'; }
     }
 
     async _openReparacionesModal(maquinariaId, maquinariaNombre) {
