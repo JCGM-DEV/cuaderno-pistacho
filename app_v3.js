@@ -45,7 +45,7 @@ class DataStore {
         }
 
         const options = { 
-            method: (body || action === 'uploadDoc' || action === 'uploadPhoto') ? 'POST' : 'GET',
+            method: (body || action === 'uploadDoc' || action === 'uploadPhoto' || action === 'uploadFactura') ? 'POST' : 'GET',
             credentials: 'include',
             headers: {}
         };
@@ -142,7 +142,7 @@ class DataStore {
         }
         
         const options = { 
-            method: (body || action === 'uploadDoc' || action === 'uploadPhoto') ? 'POST' : 'GET',
+            method: (body || action === 'uploadDoc' || action === 'uploadPhoto' || action === 'uploadFactura') ? 'POST' : 'GET',
             credentials: 'include',
             headers: {}
         };
