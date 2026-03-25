@@ -1,9 +1,9 @@
-const CACHE_NAME = 'garuto-pwa-v6.1';
+const CACHE_NAME = 'garuto-pwa-v7.0';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
-  './index.css?v=G34',
-  './app_v3.js?v=G34',
+  './index.css?v=G35',
+  './app_v3.js?v=G35',
   './manifest.json',
   './nut.png',
   './icon-192x192.jpg',
