@@ -1769,6 +1769,41 @@ class GarutoApp {
             this._toast('❌ Error al conectar con SIGPAC: ' + err.message, 'error');
         }
     }
+
+    /**
+     * Helper genérico para subir imágenes/facturas
+     * @param {string} folder — Carpeta destino (ej: 'facturas/')
+     * @param {function} callback — Recibe el filename subido
+     * @param {string} fieldName — Nombre del campo en FormData (ej: 'factura')
+     */
+    async _handleImageUpload(folder, callback, fieldName = 'factura') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // Sugerir cámara
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append(fieldName, file);
+
+            try {
+                this._toast('Subiendo archivo...', 'info');
+                const res = await this.store._fetch('uploadFactura', {}, formData);
+                if (res.success) {
+                    callback(res.filename);
+                } else {
+                    throw new Error(res.error || 'Error desconocido');
+                }
+            } catch (err) {
+                console.error('Error en upload:', err);
+                this._toast('❌ Error al subir: ' + err.message, 'error');
+            }
+        };
+        input.click();
+    }
     // ===============================
     // PARCELAS / REGISTRO
     // ===============================
