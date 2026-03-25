@@ -3435,8 +3435,8 @@ body::after {
 }
 
 .pistachin-chat-window {
-    width: 350px;
-    height: 500px;
+    width: 420px;
+    height: 650px;
     background: rgba(30, 35, 25, 0.95);
     backdrop-filter: blur(15px);
     border: 1px solid rgba(163, 214, 94, 0.2);
@@ -3513,7 +3513,7 @@ body::after {
 }
 
 .message {
-    max-width: 85%;
+    max-width: 90%;
     padding: 0.8rem 1rem;
     border-radius: 15px;
     font-size: 0.9rem;
@@ -3817,9 +3817,9 @@ body::after {
         align-items: flex-end;
     }
     .pistachin-chat-window {
-        width: calc(100vw - 3rem) !important;
-        height: 60vh;
-        bottom: 5rem;
+        width: calc(100vw - 2rem) !important;
+        height: 75vh;
+        bottom: 5.5rem;
     }
     .pistachin-fab {
         width: 60px;
