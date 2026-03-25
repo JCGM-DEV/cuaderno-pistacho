@@ -42,9 +42,15 @@ El esquema de MySQL se ha optimizado para la exportación oficial:
 - `api.php?action=export`: Genera una copia de seguridad total del sistema en formato JSON (Solo Admin).
 - `api.php?action=import`: Permite la restauración completa de la base de datos (Solo Admin, requiere CSRF).
 
+## 5. Configuración de IA (Groq / Gemini)
+El sistema utiliza un archivo `.env` en la raíz para las claves sensibles:
+- `GROQ_API_KEY`: Recomendado (sin tarjeta). Usa modelos Llama 3.3.
+- `GEMINI_API_KEY`: Opcional (requiere facturación en Google Cloud).
+El proxy autodetecta el tipo de clave por su prefijo (`gsk_` para Groq).
+
 ---
 
-## 5. PWA y Service Worker
+## 6. PWA y Service Worker
 - **Estrategia Caching**: `Stale-While-Revalidate` para activos estáticos (CSS, JS, Fonts).
 - **API Exemption**: El SW está configurado para **nunca** cachear peticiones a `api.php`, garantizando que la comunicación con la base de datos sea siempre en tiempo real cuando hay conexión.
 
