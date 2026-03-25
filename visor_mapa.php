@@ -62,13 +62,14 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         .tool-label { font-size:0.6rem; font-weight:700; text-transform:uppercase; }
         
         .tree-marker { 
-            background-color: currentColor;
-            -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>') no-repeat center;
-            mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>') no-repeat center;
-            -webkit-mask-size: contain; mask-size: contain;
-            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+            display:flex; align-items:center; justify-content:center;
+            border-radius:50%; background:rgba(22,27,33,0.8);
+            border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.6);
+            padding:4px; transition: transform 0.2s;
         }
-        .tree-marker.hembra { color:#4caf50; } .tree-marker.macho { color:#fff; } .tree-marker.injerto { color:#2196f3; } .tree-marker.sin_injerto { color:#aaa; } .tree-marker.marra { color:#f44336; }
+        .tree-marker:hover { transform: scale(1.2); z-index: 1000 !important; }
+        .tree-marker svg { width:100%; height:100%; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5)); }
+        .tree-marker.hembra { color:#b8f17e; } .tree-marker.macho { color:#fff; } .tree-marker.injerto { color:#58b1f5; } .tree-marker.sin_injerto { color:#aaa; } .tree-marker.marra { color:#ff6b6b; }
         .toast { position:fixed; top:80px; left:50%; transform:translateX(-50%); background:#1e2a1e; border:1px solid var(--green); color:var(--green); padding:0.8rem 1.5rem; border-radius:12px; z-index:2000; }
         /* Stats Panel */
         .stats-panel { position:absolute; top:calc(var(--header-h) + 12px); right:12px; z-index:1000; background:rgba(22,27,34,0.92); backdrop-filter:blur(12px); border:1px solid rgba(163,214,94,0.35); border-radius:14px; padding:0.7rem 0.9rem; min-width:160px; }
@@ -312,7 +313,11 @@ $pLn = isset($_GET['lng']) ? floatval($_GET['lng']) : 0;
         }
         function addMarker(t, i) {
             if(!t) return;
-            const icon = L.divIcon({ className:`tree-marker ${t.status}`, iconSize:[26,26], iconAnchor:[13,26] });
+            const icon = L.divIcon({ 
+                className:`tree-marker ${t.status}`, 
+                html: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 19V13H7L12 3L17 13H13V19H17V21H7V19H11Z"/></svg>`,
+                iconSize:[32,32], iconAnchor:[16,16] 
+            });
             const m = L.marker([t.lat, t.lng], {icon}).addTo(map);
             m.on('click', e => {
                 L.DomEvent.stopPropagation(e);
