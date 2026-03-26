@@ -6,7 +6,9 @@
 // ============================================================
 // 1. API URL — Cambia si tu ruta es diferente
 // ============================================================
-const API_URL = 'api.php';
+const API_URL = (window.location.hostname === 'localhost' || window.location.protocol === 'file:' || (window.Capacitor && window.Capacitor.isNativePlatform())) 
+    ? 'https://tituta.es/api.php' // Ajustado a tituta.es según la configuración de CORS
+    : 'api.php';
 
 // ============================================================
 // 2. AUTH — Managed via API

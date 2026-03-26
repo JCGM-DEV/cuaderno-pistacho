@@ -1,5 +1,5 @@
 {
   "appId": "com.thebrave.garuto",
   "appName": "Garuto",
-  "webDir": "."
+  "webDir": "www"
 }

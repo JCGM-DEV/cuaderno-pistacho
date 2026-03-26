@@ -57,7 +57,7 @@ define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
 // ---- CORS y Headers ----
 header('Content-Type: application/json; charset=utf-8');
-$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es', 'http://localhost', 'http://127.0.0.1'];
+$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es', 'http://localhost', 'http://127.0.0.1', 'capacitor://localhost'];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 if (in_array($origin, $allowedOrigins)) {
     header('Access-Control-Allow-Origin: ' . $origin);
