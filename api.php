@@ -56,18 +56,26 @@ function checkCSRF() {
 define('UPLOAD_DIR', __DIR__ . '/uploads/');
 
 // ---- CORS y Headers ----
-header('Content-Type: application/json; charset=utf-8');
-$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es', 'http://localhost', 'http://127.0.0.1', 'capacitor://localhost'];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if (in_array($origin, $allowedOrigins)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
-} else {
-    // Fallback para desarrollo o dominios no previstos
-    header('Access-Control-Allow-Origin: *'); 
-}
+// Debug log para identificar el origen exacto (esto ayudará a depurar)
+if ($debug) @file_put_contents('/tmp/garuto_cors_debug.log', date('Y-m-d H:i:s') . " - Origin: [$origin]\n", FILE_APPEND);
+
+header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
+
+$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es', 'http://localhost', 'http://127.0.0.1', 'capacitor://localhost'];
+
+if (in_array($origin, $allowedOrigins)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+} elseif (strpos($origin, 'capacitor://') === 0 || strpos($origin, 'http://localhost') === 0) {
+    // Permitir cualquier sub-origen de capacitor o localhost para la app nativa
+    header('Access-Control-Allow-Origin: ' . $origin);
+} else {
+    // Fallback: Si no hay origin (petición directa) o no permitido
+    header('Access-Control-Allow-Origin: https://tituta.es'); 
+}
 
 // Preflight
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
