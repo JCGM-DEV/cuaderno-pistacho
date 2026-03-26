@@ -5,8 +5,7 @@
   "main": "app_v3.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "mkdir -p www && cp index.html index.css app_v3.js manifest.json sw.js nut.png icon-*.png logo.png www/ && cp -r uploads www/ 2>/dev/null || true",
-    "sync-mobile": "npm run build && npx cap sync android"
+    "build": "mkdir -p www && cp index.html index.css app_v3.js manifest.json sw.js nut.png icon-*.png logo.png www/ && cp -r uploads www/ 2>/dev/null || true"
   },
   "repository": {
     "type": "git",
@@ -20,13 +19,9 @@
   },
   "homepage": "https://github.com/cgarrido10646/cuaderno-pistacho#readme",
   "dependencies": {
-    "@capacitor/android": "^8.3.0",
-    "@capacitor/core": "^8.2.0",
     "basic-ftp": "^5.2.0",
     "dotenv": "^17.3.1",
     "ftp-deploy": "^2.4.7"
   },
-  "devDependencies": {
-    "@capacitor/cli": "^8.2.0"
-  }
+  "devDependencies": {}
 }

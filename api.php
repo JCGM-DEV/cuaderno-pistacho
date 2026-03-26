@@ -63,16 +63,12 @@ header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-CSRF-Token');
 
-$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es', 'http://localhost', 'http://127.0.0.1', 'capacitor://localhost'];
+$allowedOrigins = ['https://tituta.es', 'https://www.tituta.es'];
 
-if (empty($origin)) {
-    // Si no hay origen (ej. app nativa o curl), permitimos todo para facilitar el debug
-    header('Access-Control-Allow-Origin: *'); 
-} elseif (in_array($origin, $allowedOrigins) || strpos($origin, 'capacitor://') === 0 || strpos($origin, 'http://localhost') === 0) {
+if (in_array($origin, $allowedOrigins)) {
     header('Access-Control-Allow-Origin: ' . $origin);
 } else {
-    // Para casos raros, intentamos reflejar el origen si es seguro
-    header('Access-Control-Allow-Origin: ' . $origin); 
+    header('Access-Control-Allow-Origin: https://tituta.es'); 
 }
 
 // Preflight
