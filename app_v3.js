@@ -7,7 +7,7 @@
 // 1. API URL — Cambia si tu ruta es diferente
 // ============================================================
 const API_URL = (window.location.hostname === 'localhost' || window.location.protocol === 'file:' || (window.Capacitor && window.Capacitor.isNativePlatform())) 
-    ? 'http://tituta.es/garuto/api.php' // Ruta definitiva con subcarpeta /garuto/
+    ? 'https://tituta.es/garuto/api.php' // Volvemos a https para evitar el 301
     : 'api.php';
 
 // Debug: Alerta visual para confirmar la URL en el móvil
