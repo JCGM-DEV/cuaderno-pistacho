@@ -1,5 +1,8 @@
 {
   "appId": "com.thebrave.garuto",
   "appName": "Garuto",
-  "webDir": "www"
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http"
+  }
 }

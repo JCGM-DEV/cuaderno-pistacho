@@ -58,7 +58,7 @@ define('UPLOAD_DIR', __DIR__ . '/uploads/');
 // ---- CORS y Headers ----
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 // Debug log para identificar el origen exacto (esto ayudará a depurar)
-if ($debug) @file_put_contents('/tmp/garuto_cors_debug.log', date('Y-m-d H:i:s') . " - Origin: [$origin]\n", FILE_APPEND);
+if ($debug) @file_put_contents(__DIR__ . '/uploads/cors_debug.log', date('Y-m-d H:i:s') . " - Origin: [$origin]\n", FILE_APPEND);
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Credentials: true');
