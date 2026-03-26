@@ -10,6 +10,13 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.pro
     ? 'http://tituta.es/garuto/api.php' // Ruta definitiva con subcarpeta /garuto/
     : 'api.php';
 
+// Debug: Alerta visual para confirmar la URL en el móvil
+if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+    console.log("Garuto Native Debug: API_URL is " + API_URL);
+    // Alertar solo la primera vez o para debug
+    // alert("Intentando conectar a: " + API_URL); 
+}
+
 // ============================================================
 // 2. AUTH — Managed via API
 // ============================================================
@@ -80,6 +87,11 @@ class DataStore {
 
             return await res.json();
         } catch (err) {
+            // Debug: Alerta visual de error en el móvil
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                alert("ERROR DE CONEXIÓN:\nURL: " + url.toString() + "\nDetalle: " + err.message);
+            }
+            
             // If it's a REAL network failure (server unreachable, DNS, etc.) AND mutative, queue it
             const isNetworkError = err.name === 'TypeError' || err.message.includes('network') || err.message.includes('fetch');
             
