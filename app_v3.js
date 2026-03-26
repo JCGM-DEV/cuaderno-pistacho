@@ -10,6 +10,9 @@ const API_URL = (window.location.hostname === 'localhost' || window.location.pro
     ? 'https://tituta.es/garuto/api.php' // Ruta definitiva oficial
     : 'api.php';
 
+// Base para enlaces externos (Visores, exportaciones)
+const BASE_WEB_URL = 'https://tituta.es/garuto/';
+
 // ============================================================
 // 2. AUTH — Managed via API
 // ============================================================
@@ -199,7 +202,9 @@ class DataStore {
     }
 
     async exportSIEX() {
-        const url = `${this.apiUrl}?action=exportSIEX`;
+        const url = (window.Capacitor && window.Capacitor.isNativePlatform())
+            ? `${BASE_WEB_URL}api.php?action=exportSIEX`
+            : `${this.apiUrl}?action=exportSIEX`;
         window.location.href = url; // Standard download
     }
 }
@@ -2241,7 +2246,10 @@ class GarutoApp {
                     const nombre = btn.dataset.nombre;
                     const lat = btn.dataset.lat;
                     const lng = btn.dataset.lng;
-                    window.location.href = `visor_mapa.php?id=${id}&nombre=${nombre}&lat=${lat}&lng=${lng}`;
+                    const url = (window.Capacitor && window.Capacitor.isNativePlatform())
+                        ? `${BASE_WEB_URL}visor_mapa.php?id=${id}&nombre=${nombre}&lat=${lat}&lng=${lng}`
+                        : `visor_mapa.php?id=${id}&nombre=${nombre}&lat=${lat}&lng=${lng}`;
+                    window.location.href = url;
                 });
             });
 
